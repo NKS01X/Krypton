@@ -1,0 +1,43 @@
+# vid-piracy-backend
+
+# Build
+*.exe
+*.dll
+*.so
+*.dylib
+
+# Test
+*.test
+*.out
+
+# Go workspace
+go.work
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Temp processing files
+/tmp/vidpiracy/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# ONNX models (bade files)
+*.onnx
+models/
+
+# env files
+*.env
+*.env.*
+*.env.local
+
+# local files
+implementation_plan.md 
+task.md 
+
+# mcp files
+.serena/    
