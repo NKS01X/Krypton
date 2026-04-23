@@ -19,16 +19,7 @@ go.work
 *.swp
 *.swo
 
-# Temp processing files
-/tmp/vidpiracy/
 
-# OS
-.DS_Store
-Thumbs.db
-
-# ONNX models (bade files)
-*.onnx
-models/
 
 # env files
 *.env
@@ -36,8 +27,8 @@ models/
 *.env.local
 
 # local files
-implementation_plan.md 
-task.md 
+implementation_plan.md
+task.md
 
 # mcp files
-.serena/    
+.serena/
