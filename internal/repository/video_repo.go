@@ -130,7 +130,7 @@ func (r *VideoRepo) GetPhashMatches(ctx context.Context, phashValue uint64, excl
 }
 
 func (r *VideoRepo) InsertScanResult(ctx context.Context, result *models.ScanResult) error {
-	result.ID = uuid.New()
+	// ID must be set by caller (to match the jobID returned to client)
 	result.CreatedAt = time.Now()
 
 	query := `

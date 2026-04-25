@@ -114,6 +114,7 @@ func (e *SimilarityEngine) ProcessAndScan(ctx context.Context, scanURL string, j
 	}
 
 	result := e.aggregateResults(scanURL, allPhashMatches, vectorMatches)
+	result.ID = jobID
 
 	if err := e.videoRepo.InsertScanResult(ctx, result); err != nil {
 		log.Error().Err(err).Msg("scan result save fail")
