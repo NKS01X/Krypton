@@ -1,6 +1,8 @@
 package config
 
 import (
+	"os"
+	"strings"
 	"time"
 
 	"github.com/spf13/viper"
@@ -64,6 +66,7 @@ func Load(path string) (*AppConfig, error) {
 	viper.SetConfigFile(path)
 	viper.SetConfigType("yaml")
 
+	viper.SetEnvKeyReplacer(strings.NewReplacer(".", "_"))
 	viper.AutomaticEnv()
 
 	if err := viper.ReadInConfig(); err != nil {
@@ -74,6 +77,9 @@ func Load(path string) (*AppConfig, error) {
 	if err := viper.Unmarshal(&cfg); err != nil {
 		return nil, err
 	}
+
+	// Expand env vars in strings like ${JINA_API_KEY}
+	cfg.Embedder.APIKey = os.ExpandEnv(cfg.Embedder.APIKey)
 
 	return &cfg, nil
 }
