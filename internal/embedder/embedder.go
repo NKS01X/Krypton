@@ -156,7 +156,15 @@ func GenerateEmbeddings(ctx context.Context, frames []extractor.KeyframeResult, 
 
 			mu.Lock()
 			embeddings = append(embeddings, embedding)
+			progress := len(embeddings)
+			total := len(frames)
 			mu.Unlock()
+
+			log.Info().
+				Int("frame", f.FrameIndex).
+				Int("progress", progress).
+				Int("total", total).
+				Msg("frame embedded successfully")
 		}(frame)
 	}
 
