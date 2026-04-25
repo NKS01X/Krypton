@@ -78,15 +78,10 @@ func (e *SimilarityEngine) ProcessAndScan(ctx context.Context, scanURL string, j
 	})
 
 	g.Go(func() error {
-		if e.cfg.Embedder.Mode == "http" {
-			var eErr error
-			embeddings, eErr = embedder.GenerateEmbeddings(gCtx, frames, tempVideoID, e.cfg.Embedder, e.cfg.Processing.MaxConcurrentFrame)
-			if eErr != nil {
-				log.Warn().Err(eErr).Msg("embedding pipeline fail, placeholder use karenge")
-				embeddings = embedder.GeneratePlaceholderEmbeddings(frames, tempVideoID, e.cfg.Embedder.EmbeddingDim)
-			}
-		} else {
-			embeddings = embedder.GeneratePlaceholderEmbeddings(frames, tempVideoID, e.cfg.Embedder.EmbeddingDim)
+		var eErr error
+		embeddings, eErr = embedder.GenerateEmbeddings(gCtx, frames, tempVideoID, e.cfg.Embedder, e.cfg.Processing.MaxConcurrentFrame)
+		if eErr != nil {
+			return fmt.Errorf("embedding pipeline fail: %w", eErr)
 		}
 		log.Info().Int("embedding_count", len(embeddings)).Msg("embedding pipeline complete")
 		return nil
@@ -167,7 +162,11 @@ func (e *SimilarityEngine) RegisterProtectedContent(ctx context.Context, video *
 	})
 
 	g.Go(func() error {
-		embeddings = embedder.GeneratePlaceholderEmbeddings(frames, video.ID, e.cfg.Embedder.EmbeddingDim)
+		var eErr error
+		embeddings, eErr = embedder.GenerateEmbeddings(gCtx, frames, video.ID, e.cfg.Embedder, e.cfg.Processing.MaxConcurrentFrame)
+		if eErr != nil {
+			return fmt.Errorf("embedding pipeline fail: %w", eErr)
+		}
 		return nil
 	})
 

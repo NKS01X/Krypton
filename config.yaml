@@ -28,7 +28,6 @@ similarity:
   vector_search_limit: 20    # top-K results from pgvector
 
 embedder:
-  mode: onnx                 # onnx | http
-  onnx_model_path: ./models/clip-vit-b32-visual.onnx
-  http_endpoint: http://localhost:8501/embed
-  embedding_dim: 512
+  api_key: ${JINA_API_KEY}
+  model: jina-clip-v2
+  embedding_dim: 1024

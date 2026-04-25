@@ -36,7 +36,7 @@ A high-performance video copyright detection system built in Go. It detects pira
    - **Extract keyframes** via `ffmpeg` at configurable FPS
    - **Dual pipeline** (concurrent):
      - **pHash**: Perceptual + Difference hashing via `goimagehash`
-     - **Embeddings**: CLIP ViT-B/32 vectors (512-dim) via HTTP inference service or placeholder
+     - **Embeddings**: Jina AI multimodal vectors (1024-dim) via `jina-clip-v2` API
    - **Compare** against protected content in PostgreSQL
    - **Store** scan result with match details
 4. Client polls the scan result by `job_id`
@@ -88,7 +88,7 @@ vid-piracy-backend/
 | **Video Download** | [yt-dlp](https://github.com/yt-dlp/yt-dlp)                             |
 | **Frame Extract**  | [FFmpeg](https://ffmpeg.org/)                                          |
 | **Hashing**        | [goimagehash](https://github.com/corona10/goimagehash) (pHash + dHash) |
-| **Embeddings**     | CLIP ViT-B/32 (512-dim) via HTTP or ONNX                               |
+| **Embeddings**     | Jina AI `jina-clip-v2` (1024-dim) via HTTP API                         |
 | **Config**         | [Viper](https://github.com/spf13/viper) (YAML + env override)          |
 | **Logging**        | [zerolog](https://github.com/rs/zerolog)                               |
 | **Concurrency**    | `errgroup`, semaphore pattern, goroutine pools                         |
@@ -366,7 +366,7 @@ Per-frame vector embeddings for fuzzy semantic matching via pgvector.
 | `video_id`      | UUID (FK)   | References `protected_videos.id` (CASCADE) |
 | `frame_index`   | INT         | 0-based frame index                        |
 | `timestamp_sec` | FLOAT       | Frame timestamp                            |
-| `embedding`     | vector(512) | CLIP ViT-B/32 embedding (512 dimensions)   |
+| `embedding`     | vector(1024)| Jina AI multimodal embedding (1024 dimensions)|
 | `created_at`    | TIMESTAMPTZ | Creation timestamp                         |
 
 **Indexes:** `idx_embedding_cosine` (IVFFlat with `vector_cosine_ops`, lists=100), `idx_embedding_video`
@@ -401,8 +401,8 @@ Stores outcomes of each scan job.
 
 ### Vector Embeddings (Fuzzy/Semantic)
 
-- Generates 512-dimensional vectors using CLIP ViT-B/32
-- Stored in pgvector `vector(512)` columns with **IVFFlat** index
+- Generates 1024-dimensional vectors using Jina AI multimodal API (`jina-clip-v2`)
+- Stored in pgvector `vector(1024)` columns with **IVFFlat** index
 - Compared via **cosine similarity** using pgvector's `<=>` operator
 - Default threshold: ≥0.85 similarity (configurable)
 - Top-K search limit: 20 results per query frame
@@ -452,10 +452,9 @@ similarity:
   vector_search_limit: 20   # Top-K results from pgvector
 
 embedder:
-  mode: onnx                # "onnx" (placeholder) or "http" (real inference)
-  onnx_model_path: ./models/clip-vit-b32-visual.onnx
-  http_endpoint: http://localhost:8501/embed
-  embedding_dim: 512
+  api_key: ${JINA_API_KEY}
+  model: jina-clip-v2
+  embedding_dim: 1024
 ```
 
 ### Environment Variable Overrides
@@ -516,24 +515,9 @@ RabbitMQ is used for decoupling the API from heavy processing:
 
 ## 🔌 Embedding Service
 
-The embedder supports two modes:
+The embedder uses the [Jina AI Embeddings API](https://jina.ai/embeddings/).
 
-### `http` mode (Production)
-Calls an external CLIP inference service at `http_endpoint`:
-
-**Request:**
-```json
-POST /embed
-{"image_path": "/tmp/vidpiracy/<job-id>/frames/frame_000001.jpg"}
-```
-
-**Response:**
-```json
-{"embedding": [0.123, -0.456, ...]}  // 512-dim float32 array
-```
-
-### `onnx` mode (Placeholder)
-Generates crude placeholder embeddings from average pixel color values. Useful for testing the pipeline without a running inference service.
+It converts extracted keyframes to base64 images and sends them to the Jina API (`https://api.jina.ai/v1/embeddings`) using the configured model (e.g. `jina-clip-v2`). Generated embeddings are returned as 1024-dimensional vectors.
 
 ---
 

@@ -55,10 +55,9 @@ type SimilarityConfig struct {
 }
 
 type EmbedderConfig struct {
-	Mode          string `mapstructure:"mode"`
-	ONNXModelPath string `mapstructure:"onnx_model_path"`
-	HTTPEndpoint  string `mapstructure:"http_endpoint"`
-	EmbeddingDim  int    `mapstructure:"embedding_dim"`
+	APIKey       string `mapstructure:"api_key"`
+	Model        string `mapstructure:"model"`
+	EmbeddingDim int    `mapstructure:"embedding_dim"`
 }
 
 func Load(path string) (*AppConfig, error) {

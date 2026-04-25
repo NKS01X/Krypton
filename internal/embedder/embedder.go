@@ -3,11 +3,9 @@ package embedder
 import (
 	"bytes"
 	"context"
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
-	"image"
-	_ "image/jpeg"
-	_ "image/png"
 	"net/http"
 	"os"
 	"sync"
@@ -21,68 +19,94 @@ import (
 	"github.com/nikhil/vid-piracy-backend/internal/models"
 )
 
-type Embedder interface {
-	EmbedImage(ctx context.Context, img image.Image) ([]float32, error)
-	Close() error
-}
+const jinaEndpoint = "https://api.jina.ai/v1/embeddings"
 
-type HTTPEmbedder struct {
-	endpoint     string
+type JinaEmbedder struct {
+	apiKey       string
+	model        string
 	embeddingDim int
 	client       *http.Client
 }
 
-type httpEmbedRequest struct {
-	ImagePath string `json:"image_path"`
+// Jina API request/response types
+type jinaImageInput struct {
+	Image string `json:"image"` // base64 data URI
 }
 
-type httpEmbedResponse struct {
+type jinaRequest struct {
+	Model string           `json:"model"`
+	Input []jinaImageInput `json:"input"`
+}
+
+type jinaEmbeddingData struct {
 	Embedding []float32 `json:"embedding"`
 }
 
-func NewHTTPEmbedder(cfg config.EmbedderConfig) *HTTPEmbedder {
-	return &HTTPEmbedder{
-		endpoint:     cfg.HTTPEndpoint,
+type jinaResponse struct {
+	Data []jinaEmbeddingData `json:"data"`
+}
+
+func NewJinaEmbedder(cfg config.EmbedderConfig) *JinaEmbedder {
+	return &JinaEmbedder{
+		apiKey:       cfg.APIKey,
+		model:        cfg.Model,
 		embeddingDim: cfg.EmbeddingDim,
 		client:       &http.Client{},
 	}
 }
 
-func (e *HTTPEmbedder) EmbedImage(ctx context.Context, imgPath string) ([]float32, error) {
-	reqBody, err := json.Marshal(httpEmbedRequest{ImagePath: imgPath})
+func (e *JinaEmbedder) EmbedImage(ctx context.Context, imgPath string) ([]float32, error) {
+	imgData, err := os.ReadFile(imgPath)
+	if err != nil {
+		return nil, fmt.Errorf("image read fail: %w", err)
+	}
+
+	b64 := base64.StdEncoding.EncodeToString(imgData)
+	dataURI := "data:image/png;base64," + b64
+
+	reqBody, err := json.Marshal(jinaRequest{
+		Model: e.model,
+		Input: []jinaImageInput{{Image: dataURI}},
+	})
 	if err != nil {
 		return nil, fmt.Errorf("request marshal fail: %w", err)
 	}
 
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, e.endpoint, bytes.NewReader(reqBody))
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, jinaEndpoint, bytes.NewReader(reqBody))
 	if err != nil {
 		return nil, fmt.Errorf("request create fail: %w", err)
 	}
 	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Authorization", "Bearer "+e.apiKey)
 
 	resp, err := e.client.Do(req)
 	if err != nil {
-		return nil, fmt.Errorf("embed request fail: %w", err)
+		return nil, fmt.Errorf("jina request fail: %w", err)
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("embed service returned status %d", resp.StatusCode)
+		return nil, fmt.Errorf("jina returned status %d", resp.StatusCode)
 	}
 
-	var embedResp httpEmbedResponse
-	if err := json.NewDecoder(resp.Body).Decode(&embedResp); err != nil {
+	var jinaResp jinaResponse
+	if err := json.NewDecoder(resp.Body).Decode(&jinaResp); err != nil {
 		return nil, fmt.Errorf("response decode fail: %w", err)
 	}
 
-	if len(embedResp.Embedding) != e.embeddingDim {
-		return nil, fmt.Errorf("embedding dim mismatch: expected %d, got %d", e.embeddingDim, len(embedResp.Embedding))
+	if len(jinaResp.Data) == 0 {
+		return nil, fmt.Errorf("jina returned no embeddings")
 	}
 
-	return embedResp.Embedding, nil
+	vec := jinaResp.Data[0].Embedding
+	if len(vec) != e.embeddingDim {
+		return nil, fmt.Errorf("embedding dim mismatch: expected %d, got %d", e.embeddingDim, len(vec))
+	}
+
+	return vec, nil
 }
 
-func (e *HTTPEmbedder) Close() error {
+func (e *JinaEmbedder) Close() error {
 	return nil
 }
 
@@ -91,8 +115,8 @@ func GenerateEmbeddings(ctx context.Context, frames []extractor.KeyframeResult, 
 		return nil, fmt.Errorf("koi frame nahi mila embedding ke liye")
 	}
 
-	embedder := NewHTTPEmbedder(cfg)
-	defer embedder.Close()
+	e := NewJinaEmbedder(cfg)
+	defer e.Close()
 
 	sem := make(chan struct{}, maxConcurrent)
 	var mu sync.Mutex
@@ -114,7 +138,7 @@ func GenerateEmbeddings(ctx context.Context, frames []extractor.KeyframeResult, 
 			sem <- struct{}{}
 			defer func() { <-sem }()
 
-			vec, err := embedder.EmbedImage(ctx, f.Path)
+			vec, err := e.EmbedImage(ctx, f.Path)
 			if err != nil {
 				mu.Lock()
 				errList = append(errList, fmt.Errorf("frame[%d] embed fail: %w", f.FrameIndex, err))
@@ -149,43 +173,4 @@ func GenerateEmbeddings(ctx context.Context, frames []extractor.KeyframeResult, 
 		Msg("embedding generation complete")
 
 	return embeddings, nil
-}
-
-func GeneratePlaceholderEmbeddings(frames []extractor.KeyframeResult, videoID uuid.UUID, dim int) []models.FrameEmbedding {
-	var embeddings []models.FrameEmbedding
-	for _, f := range frames {
-		vec := make([]float32, dim)
-		file, err := os.Open(f.Path)
-		if err == nil {
-			img, _, err := image.Decode(file)
-			if err == nil {
-				bounds := img.Bounds()
-				var r, g, b float32
-				count := float32(0)
-				for y := bounds.Min.Y; y < bounds.Max.Y; y += 10 {
-					for x := bounds.Min.X; x < bounds.Max.X; x += 10 {
-						cr, cg, cb, _ := img.At(x, y).RGBA()
-						r += float32(cr) / 65535.0
-						g += float32(cg) / 65535.0
-						b += float32(cb) / 65535.0
-						count++
-					}
-				}
-				if count > 0 {
-					vec[0] = r / count
-					vec[1] = g / count
-					vec[2] = b / count
-				}
-			}
-			file.Close()
-		}
-
-		embeddings = append(embeddings, models.FrameEmbedding{
-			VideoID:      videoID,
-			FrameIndex:   f.FrameIndex,
-			TimestampSec: f.TimestampSec,
-			Embedding:    pgvector.NewVector(vec),
-		})
-	}
-	return embeddings
 }
