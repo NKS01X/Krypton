@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"os"
 	"sync"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/pgvector/pgvector-go"
@@ -72,38 +73,54 @@ func (e *JinaEmbedder) EmbedImage(ctx context.Context, imgPath string) ([]float3
 		return nil, fmt.Errorf("request marshal fail: %w", err)
 	}
 
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, jinaEndpoint, bytes.NewReader(reqBody))
-	if err != nil {
-		return nil, fmt.Errorf("request create fail: %w", err)
-	}
-	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("Authorization", "Bearer "+e.apiKey)
+	var finalErr error
+	maxRetries := 5
 
-	resp, err := e.client.Do(req)
-	if err != nil {
-		return nil, fmt.Errorf("jina request fail: %w", err)
-	}
-	defer resp.Body.Close()
+	for i := 0; i < maxRetries; i++ {
+		req, err := http.NewRequestWithContext(ctx, http.MethodPost, jinaEndpoint, bytes.NewReader(reqBody))
+		if err != nil {
+			return nil, fmt.Errorf("request create fail: %w", err)
+		}
+		req.Header.Set("Content-Type", "application/json")
+		req.Header.Set("Authorization", "Bearer "+e.apiKey)
 
-	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("jina returned status %d", resp.StatusCode)
+		resp, err := e.client.Do(req)
+		if err != nil {
+			return nil, fmt.Errorf("jina request fail: %w", err)
+		}
+
+		if resp.StatusCode == http.StatusTooManyRequests {
+			resp.Body.Close()
+			time.Sleep(time.Duration(i+1) * 2 * time.Second)
+			finalErr = fmt.Errorf("jina returned status 429")
+			continue
+		}
+
+		if resp.StatusCode != http.StatusOK {
+			resp.Body.Close()
+			return nil, fmt.Errorf("jina returned status %d", resp.StatusCode)
+		}
+
+		var jinaResp jinaResponse
+		if err := json.NewDecoder(resp.Body).Decode(&jinaResp); err != nil {
+			resp.Body.Close()
+			return nil, fmt.Errorf("response decode fail: %w", err)
+		}
+		resp.Body.Close()
+
+		if len(jinaResp.Data) == 0 {
+			return nil, fmt.Errorf("jina returned no embeddings")
+		}
+
+		vec := jinaResp.Data[0].Embedding
+		if len(vec) != e.embeddingDim {
+			return nil, fmt.Errorf("embedding dim mismatch: expected %d, got %d", e.embeddingDim, len(vec))
+		}
+
+		return vec, nil
 	}
 
-	var jinaResp jinaResponse
-	if err := json.NewDecoder(resp.Body).Decode(&jinaResp); err != nil {
-		return nil, fmt.Errorf("response decode fail: %w", err)
-	}
-
-	if len(jinaResp.Data) == 0 {
-		return nil, fmt.Errorf("jina returned no embeddings")
-	}
-
-	vec := jinaResp.Data[0].Embedding
-	if len(vec) != e.embeddingDim {
-		return nil, fmt.Errorf("embedding dim mismatch: expected %d, got %d", e.embeddingDim, len(vec))
-	}
-
-	return vec, nil
+	return nil, finalErr
 }
 
 func (e *JinaEmbedder) Close() error {

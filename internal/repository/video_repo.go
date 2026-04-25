@@ -78,9 +78,15 @@ func (r *VideoRepo) InsertPhashes(ctx context.Context, phashes []models.FramePha
 	for i, p := range phashes {
 		p.ID = uuid.New()
 		p.CreatedAt = time.Now()
+		var dhashPtr *int64
+		if p.DhashValue != nil {
+			dval := int64(*p.DhashValue)
+			dhashPtr = &dval
+		}
+
 		rows[i] = []interface{}{
 			p.ID, p.VideoID, p.FrameIndex, p.TimestampSec,
-			int64(p.PhashValue), p.DhashValue, p.CreatedAt,
+			int64(p.PhashValue), dhashPtr, p.CreatedAt,
 		}
 	}
 
