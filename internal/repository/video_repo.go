@@ -100,13 +100,13 @@ func (r *VideoRepo) InsertPhashes(ctx context.Context, phashes []models.FramePha
 
 func (r *VideoRepo) GetPhashMatches(ctx context.Context, phashValue uint64, excludeVideoID uuid.UUID, threshold int) ([]PhashMatch, error) {
 	query := `
-		SELECT fp.video_id, fp.frame_index, fp.timestamp_sec, fp.phash_value,
-		       bit_count(fp.phash_value # $1::bigint) AS hamming_distance
-		FROM frame_phashes fp
-		WHERE fp.video_id != $2
-		  AND bit_count(fp.phash_value # $1::bigint) <= $3
-		ORDER BY hamming_distance ASC
-		LIMIT 50`
+	SELECT fp.video_id, fp.frame_index, fp.timestamp_sec, fp.phash_value,
+	       length(replace((fp.phash_value # $1::bigint)::bit(64)::text, '0', '')) AS hamming_distance
+	FROM frame_phashes fp
+	WHERE fp.video_id != $2
+	  AND length(replace((fp.phash_value # $1::bigint)::bit(64)::text, '0', '')) <= $3
+	ORDER BY hamming_distance ASC
+	LIMIT 50`
 
 	rows, err := r.pool.Query(ctx, query, int64(phashValue), excludeVideoID, threshold)
 	if err != nil {
