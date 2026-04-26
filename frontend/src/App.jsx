@@ -4,6 +4,7 @@ import {
   AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip,
   ResponsiveContainer, BarChart, Bar, Cell,
 } from "recharts";
+import ImagePage from "./ImagePage";
 
 /* ── Helpers ── */
 const rand = (a, b) => Math.floor(Math.random() * (b - a + 1)) + a;
@@ -399,36 +400,93 @@ function ResultsPhase({ data, onNewScan }) {
 
 /* ═══ App ═══ */
 export default function App() {
+  const [mode, setMode] = useState("video"); // 🔥 NEW
+
   const [phase, setPhase] = useState("input");
   const [results, setResults] = useState(null);
+
   const onStart = useCallback(() => setPhase("processing"), []);
-  const onDone = useCallback(() => { setResults(generateResults()); setPhase("results"); }, []);
-  const onNew = useCallback(() => { setResults(null); setPhase("input"); }, []);
+  const onDone = useCallback(() => {
+    setResults(generateResults());
+    setPhase("results");
+  }, []);
+  const onNew = useCallback(() => {
+    setResults(null);
+    setPhase("input");
+  }, []);
 
   return (
     <ThemeProvider>
       <div className="app-wrapper">
-        <div className="bg-orb bg-orb-1" /><div className="bg-orb bg-orb-2" /><div className="bg-orb bg-orb-3" />
+
+        {/* 🌌 Background */}
+        <div className="bg-orb bg-orb-1" />
+        <div className="bg-orb bg-orb-2" />
+        <div className="bg-orb bg-orb-3" />
+
         <Navbar />
-        <main className="main-container">
-          <AnimatePresence mode="wait">
-            {phase === "input" && (
-              <motion.div key="p1" exit={{ opacity: 0, scale: 0.97 }} transition={{ duration: 0.3 }}>
-                <InputPhase onStart={onStart} />
-              </motion.div>
-            )}
-            {phase === "processing" && (
-              <motion.div key="p2" exit={{ opacity: 0, y: -10 }} transition={{ duration: 0.3 }}>
-                <ProcessingPhase onComplete={onDone} />
-              </motion.div>
-            )}
-            {phase === "results" && (
-              <motion.div key="p3" exit={{ opacity: 0 }} transition={{ duration: 0.3 }}>
-                <ResultsPhase data={results} onNewScan={onNew} />
-              </motion.div>
-            )}
-          </AnimatePresence>
-        </main>
+
+        {/* 🔥 MODE SWITCH */}
+        <div style={{
+          position: "fixed",
+          top: 80,
+          right: 20,
+          zIndex: 1000,
+          display: "flex",
+          gap: "10px"
+        }}>
+          <button
+            onClick={() => setMode("video")}
+            style={{
+              padding: "8px 16px",
+              background: mode === "video" ? "#6366f1" : "#333",
+              color: "white",
+              borderRadius: "8px"
+            }}
+          >
+            🎬 Video
+          </button>
+
+          <button
+            onClick={() => setMode("image")}
+            style={{
+              padding: "8px 16px",
+              background: mode === "image" ? "#22c55e" : "#333",
+              color: "white",
+              borderRadius: "8px"
+            }}
+          >
+            📸 Image
+          </button>
+        </div>
+
+        {/* 🔥 CONDITIONAL UI */}
+        {mode === "image" ? (
+          <ImagePage />   // 👈 your new component
+        ) : (
+          <main className="main-container">
+            <AnimatePresence mode="wait">
+              {phase === "input" && (
+                <motion.div key="p1" exit={{ opacity: 0, scale: 0.97 }} transition={{ duration: 0.3 }}>
+                  <InputPhase onStart={onStart} />
+                </motion.div>
+              )}
+
+              {phase === "processing" && (
+                <motion.div key="p2" exit={{ opacity: 0, y: -10 }} transition={{ duration: 0.3 }}>
+                  <ProcessingPhase onComplete={onDone} />
+                </motion.div>
+              )}
+
+              {phase === "results" && (
+                <motion.div key="p3" exit={{ opacity: 0 }} transition={{ duration: 0.3 }}>
+                  <ResultsPhase data={results} onNewScan={onNew} />
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </main>
+        )}
+
       </div>
     </ThemeProvider>
   );
