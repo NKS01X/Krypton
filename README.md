@@ -231,6 +231,31 @@ curl http://localhost:8080/api/v1/scan/a1b2c3d4-e5f6-7890-abcd-ef1234567890
 
 ---
 
+### `POST   /api/v1/protected/upload`  --- Register Protected Content by Direct content upload
+
+Register a video as protected content. Its keyframes will be fingerprinted and stored for future scans to match against.
+
+Upload your video directly from Any Fontend Client
+
+**Body**
+**form-data**
+Attach video to be uploaded
+
+**Response `202 Accepted`:**
+
+```json
+{
+  "job_id": "b2c3d4e5-f6a7-8901-bcde-f23456789012",
+  "status": "queued",
+  "message": "protected content registration queued"
+}
+```
+
+
+--------
+
+
+
 ### `POST /api/v1/protected` — Register Protected Content
 
 Register a video as protected content. Its keyframes will be fingerprinted and stored for future scans to match against.
