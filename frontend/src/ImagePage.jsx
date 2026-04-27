@@ -7,12 +7,35 @@ export default function ImagePage() {
   const [loading, setLoading] = useState(false);
   const [results, setResults] = useState(null);
 
+  const [progress, setProgress] = useState(0);
+  const [stepText, setStepText] = useState("");
+
   const fileRef = useRef(null);
+
+  const STEPS = [
+    "Uploading image...",
+    "Extracting visual features...",
+    "Generating search queries...",
+    "Searching across platforms...",
+    "Analyzing similarity...",
+    "Finalizing results..."
+  ];
 
   const handleUpload = async () => {
     if (!file) return;
 
     setLoading(true);
+    setResults(null);
+    setProgress(0);
+    setStepText(STEPS[0]);
+
+    let stepIndex = 0;
+
+    const interval = setInterval(() => {
+      stepIndex = Math.min(stepIndex + 1, STEPS.length - 1);
+      setStepText(STEPS[stepIndex]);
+      setProgress((prev) => Math.min(prev + 15, 90));
+    }, 800);
 
     const formData = new FormData();
     formData.append("image", file);
@@ -24,12 +47,22 @@ export default function ImagePage() {
       });
 
       const data = await res.json();
-      setResults(data);
-    } catch (err) {
-      console.error(err);
-    }
 
-    setLoading(false);
+      clearInterval(interval);
+
+      setProgress(100);
+      setStepText("Analysis Complete ✅");
+
+      setTimeout(() => {
+        setResults(data);
+        setLoading(false);
+      }, 500);
+
+    } catch (err) {
+      clearInterval(interval);
+      console.error(err);
+      setLoading(false);
+    }
   };
 
   return (
@@ -40,20 +73,17 @@ export default function ImagePage() {
         animate={{ opacity: 1, y: 0, scale: 1 }}
         transition={{ duration: 0.6 }}
       >
-        {/* TITLE */}
         <h1>Image Piracy Detection</h1>
         <p className="subtitle">
           Upload an image to detect pirated content using AI similarity analysis
         </p>
 
-        {/* DROPZONE (SAME STYLE AS VIDEO) */}
+        {/* DROPZONE */}
         {file ? (
           <div className="file-selected">
             <span>📎</span>
             <span>{file.name}</span>
-            <button className="remove-file" onClick={() => setFile(null)}>
-              ✕
-            </button>
+            <button className="remove-file" onClick={() => setFile(null)}>✕</button>
           </div>
         ) : (
           <div
@@ -97,108 +127,127 @@ export default function ImagePage() {
           {loading ? "Scanning..." : "Start Scan"}
         </button>
 
+        {/* 🔥 LOADING BAR */}
+        {loading && (
+          <div style={{ marginTop: "24px" }}>
+            <p style={{
+              textAlign: "center",
+              marginBottom: "10px",
+              color: "#a5b4fc",
+              fontSize: "14px"
+            }}>
+              {stepText}
+            </p>
+
+            <div style={{
+              width: "100%",
+              height: "10px",
+              background: "rgba(255,255,255,0.05)",
+              borderRadius: "10px",
+              overflow: "hidden"
+            }}>
+              <div style={{
+                width: `${progress}%`,
+                height: "100%",
+                background: "linear-gradient(90deg, #6366f1, #8b5cf6)",
+                transition: "width 0.5s ease"
+              }} />
+            </div>
+          </div>
+        )}
+
         {/* RESULTS */}
         {results && (
-  <div style={{ marginTop: "24px" }}>
+          <div style={{ marginTop: "24px" }}>
 
-    {/* 🔥 FINAL VERDICT */}
-    {results.verdict && (
-      <div className="card" style={{
-        padding: "16px",
-        marginBottom: "18px",
-        background: "linear-gradient(90deg, #6366f1, #8b5cf6)",
-        color: "white",
-        textAlign: "center",
-        fontWeight: "600"
-      }}>
-        {results.verdict}
-      </div>
-    )}
+            {/* FINAL VERDICT */}
+            {results.verdict && (
+              <div className="card" style={{
+                padding: "16px",
+                marginBottom: "18px",
+                background: "linear-gradient(90deg, #6366f1, #8b5cf6)",
+                color: "white",
+                textAlign: "center",
+                fontWeight: "600"
+              }}>
+                {results.verdict}
+              </div>
+            )}
 
-    {/* 🔥 MATCH RESULTS */}
-    <div style={{
-      display: "grid",
-      gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))",
-      gap: "16px"
-    }}>
-
-      {results.matches?.map((item, i) => (
-        <div key={i} className="card card-hover" style={{ padding: "12px" }}>
-
-          {/* IMAGE */}
-          <img
-            src={item.url}
-            alt="match"
-            style={{
-              width: "100%",
-              height: "180px",
-              objectFit: "cover",
-              borderRadius: "10px",
-              marginBottom: "10px"
-            }}
-          />
-
-          {/* TITLE */}
-          <p style={{
-            fontSize: "13px",
-            fontWeight: "500",
-            marginBottom: "6px",
-            minHeight: "36px"
-          }}>
-            {item.title?.slice(0, 80) || "No title available"}
-          </p>
-
-          {/* SIMILARITY + RISK */}
-          <div style={{
-            display: "flex",
-            justifyContent: "space-between",
-            marginBottom: "6px"
-          }}>
-            <span style={{ color: "#a5b4fc" }}>
-              {item.similarity}%
-            </span>
-
-            <span style={{
-              color:
-                item.similarity > 80 ? "#ef4444" :
-                item.similarity > 60 ? "#f59e0b" :
-                "#22c55e",
-              fontWeight: "600"
+            {/* MATCHES */}
+            <div style={{
+              display: "grid",
+              gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))",
+              gap: "16px"
             }}>
-              {item.piracy}
-            </span>
+              {results.matches?.map((item, i) => (
+                <div key={i} className="card card-hover" style={{ padding: "12px" }}>
+
+                  <img
+                    src={item.url}
+                    alt="match"
+                    style={{
+                      width: "100%",
+                      height: "180px",
+                      objectFit: "cover",
+                      borderRadius: "10px",
+                      marginBottom: "10px"
+                    }}
+                  />
+
+                  <p style={{
+                    fontSize: "13px",
+                    fontWeight: "500",
+                    marginBottom: "6px",
+                    minHeight: "36px"
+                  }}>
+                    {item.title?.slice(0, 80) || "No title available"}
+                  </p>
+
+                  <div style={{
+                    display: "flex",
+                    justifyContent: "space-between",
+                    marginBottom: "6px"
+                  }}>
+                    <span style={{ color: "#a5b4fc" }}>
+                      {item.similarity}%
+                    </span>
+
+                    <span style={{
+                      color:
+                        item.similarity > 80 ? "#ef4444" :
+                        item.similarity > 60 ? "#f59e0b" :
+                        "#22c55e",
+                      fontWeight: "600"
+                    }}>
+                      {item.piracy}
+                    </span>
+                  </div>
+
+                  <p style={{ fontSize: "12px", color: "#94a3b8" }}>
+                    Source: <strong>{item.source}</strong>
+                  </p>
+
+                  <a
+                    href={item.page}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    style={{
+                      fontSize: "12px",
+                      color: "#6366f1",
+                      textDecoration: "none",
+                      fontWeight: "500"
+                    }}
+                  >
+                    View Original ↗
+                  </a>
+
+                </div>
+              ))}
+            </div>
           </div>
+        )}
 
-          {/* 🔥 SOURCE */}
-          <p style={{
-            fontSize: "12px",
-            color: "#94a3b8",
-            marginBottom: "6px"
-          }}>
-            Source: <strong>{item.source}</strong>
-          </p>
-
-          {/* 🔥 LINK */}
-          <a
-            href={item.page}
-            target="_blank"
-            rel="noopener noreferrer"
-            style={{
-              fontSize: "12px",
-              color: "#6366f1",
-              textDecoration: "none",
-              fontWeight: "500"
-            }}
-          >
-            View Original ↗
-          </a>
-
-        </div>
-      ))}
-
-    </div>
-  </div>
-)}
       </motion.div>
     </div>
   );
