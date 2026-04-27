@@ -99,16 +99,106 @@ export default function ImagePage() {
 
         {/* RESULTS */}
         {results && (
-          <div style={{ marginTop: "20px", textAlign: "left" }}>
-            {results.matches?.map((item, i) => (
-              <div key={i} className="card" style={{ padding: "12px", marginBottom: "12px" }}>
-                <img src={item.url} style={{ width: "100%", borderRadius: "8px", marginBottom: "8px" }} />
-                <p>Similarity: {item.similarity}%</p>
-                <p>{item.piracy}</p>
-              </div>
-            ))}
+  <div style={{ marginTop: "24px" }}>
+
+    {/* 🔥 FINAL VERDICT */}
+    {results.verdict && (
+      <div className="card" style={{
+        padding: "16px",
+        marginBottom: "18px",
+        background: "linear-gradient(90deg, #6366f1, #8b5cf6)",
+        color: "white",
+        textAlign: "center",
+        fontWeight: "600"
+      }}>
+        {results.verdict}
+      </div>
+    )}
+
+    {/* 🔥 MATCH RESULTS */}
+    <div style={{
+      display: "grid",
+      gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))",
+      gap: "16px"
+    }}>
+
+      {results.matches?.map((item, i) => (
+        <div key={i} className="card card-hover" style={{ padding: "12px" }}>
+
+          {/* IMAGE */}
+          <img
+            src={item.url}
+            alt="match"
+            style={{
+              width: "100%",
+              height: "180px",
+              objectFit: "cover",
+              borderRadius: "10px",
+              marginBottom: "10px"
+            }}
+          />
+
+          {/* TITLE */}
+          <p style={{
+            fontSize: "13px",
+            fontWeight: "500",
+            marginBottom: "6px",
+            minHeight: "36px"
+          }}>
+            {item.title?.slice(0, 80) || "No title available"}
+          </p>
+
+          {/* SIMILARITY + RISK */}
+          <div style={{
+            display: "flex",
+            justifyContent: "space-between",
+            marginBottom: "6px"
+          }}>
+            <span style={{ color: "#a5b4fc" }}>
+              {item.similarity}%
+            </span>
+
+            <span style={{
+              color:
+                item.similarity > 80 ? "#ef4444" :
+                item.similarity > 60 ? "#f59e0b" :
+                "#22c55e",
+              fontWeight: "600"
+            }}>
+              {item.piracy}
+            </span>
           </div>
-        )}
+
+          {/* 🔥 SOURCE */}
+          <p style={{
+            fontSize: "12px",
+            color: "#94a3b8",
+            marginBottom: "6px"
+          }}>
+            Source: <strong>{item.source}</strong>
+          </p>
+
+          {/* 🔥 LINK */}
+          <a
+            href={item.page}
+            target="_blank"
+            rel="noopener noreferrer"
+            style={{
+              fontSize: "12px",
+              color: "#6366f1",
+              textDecoration: "none",
+              fontWeight: "500"
+            }}
+          >
+            View Original ↗
+          </a>
+
+        </div>
+      ))}
+
+    </div>
+  </div>
+)}
       </motion.div>
     </div>
   );
