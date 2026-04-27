@@ -123,7 +123,7 @@ func (c *Consumer) handleMessage(ctx context.Context, msg amqp.Delivery) {
 			Bool("copyright", result.IsCopyrightFlag).
 			Msg("scan complete")
 
-	// This part handles the new scan upload part
+	// This case handles the new scan upload part
 	case "scan_upload":
 		result, err := c.engine.ProcessUploadedVideo(ctx, queueMsg.URL, queueMsg.JobID)
 		if err != nil {
