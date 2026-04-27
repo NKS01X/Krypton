@@ -146,7 +146,6 @@ go run ./cmd/worker
 All endpoints are prefixed with `/api/v1`.
 
 ---
-
 ### `POST /api/v1/scan` — Submit Scan Job
 
 Submit a YouTube URL for copyright scanning. Returns immediately with a `job_id` for polling.
@@ -232,6 +231,31 @@ curl http://localhost:8080/api/v1/scan/a1b2c3d4-e5f6-7890-abcd-ef1234567890
 
 ---
 
+### `POST   /api/v1/protected/upload`  --- Register Protected Content by Direct content upload
+
+Register a video as protected content. Its keyframes will be fingerprinted and stored for future scans to match against.
+
+Upload your video directly from Any Fontend Client
+
+**Body**
+**form-data**
+Attach video to be uploaded
+
+**Response `202 Accepted`:**
+
+```json
+{
+  "job_id": "b2c3d4e5-f6a7-8901-bcde-f23456789012",
+  "status": "queued",
+  "message": "protected content registration queued"
+}
+```
+
+
+--------
+
+
+
 ### `POST /api/v1/protected` — Register Protected Content
 
 Register a video as protected content. Its keyframes will be fingerprinted and stored for future scans to match against.
@@ -285,6 +309,31 @@ Liveness probe for the API server.
   "service": "vid-piracy-backend"
 }
 ```
+
+// new Endpoint created for direct video upload
+
+## `POST  /api/v1/scan/upload`  — Upload video from local machine
+
+Upload your video directly from Any Fontend Client
+
+**Body**
+**form-data**
+Attach video to be uploaded
+
+**Response `202 Accepted`:**
+
+```json
+{
+  "job_id": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+  "status": "queued",
+  "message": "scan job queue mein daal diya, GET /api/v1/scan/:id se result check karo"
+}
+
+// main info
+Directly jumps to Frame extraction step, skips the downloading process;
+
+SubmitScanUpload function in handler/api.go    -> queue/consumer.go   ->case : "scan_upload"   -> handles this video upload part
+In engine file -> engine.ProcessUploadedVideo  -> direclty adds tp step of frame extraction and keeps the remaining steps same as it is, just bypasses the download step
 
 ---
 

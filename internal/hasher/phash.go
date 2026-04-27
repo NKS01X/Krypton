@@ -104,12 +104,16 @@ func GeneratePhashes(ctx context.Context, frames []extractor.KeyframeResult, vid
 			continue
 		}
 
-		dhashPtr := &result.DhashValue
+		var dhashPtr *int64
+		if result.DhashValue != 0 {
+			v := int64(result.DhashValue)
+			dhashPtr = &v
+		}
 		phashes = append(phashes, models.FramePhash{
 			VideoID:      videoID,
 			FrameIndex:   result.FrameIndex,
 			TimestampSec: result.TimestampSec,
-			PhashValue:   result.PhashValue,
+			PhashValue:   int64(result.PhashValue),
 			DhashValue:   dhashPtr,
 		})
 	}

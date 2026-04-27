@@ -1,6 +1,10 @@
 package handler
 
 import (
+	"os"
+	"path/filepath"
+	"strings"
+
 	"github.com/gofiber/fiber/v2"
 	"github.com/google/uuid"
 	"github.com/rs/zerolog/log"
@@ -32,6 +36,119 @@ func (h *Handler) RegisterRoutes(app *fiber.App) {
 	api.Get("/scan/:id", h.GetScanResult)
 	api.Post("/protected", h.RegisterProtected)
 	api.Get("/health", h.HealthCheck)
+
+	// New Post Endpoint to Uploada video
+	api.Post("/scan/upload", h.SubmitScanUpload)
+
+	// New Post Endpoint to upload Video
+	api.Post("/protected/upload", h.RegisterProtectedUpload)
+}
+
+func (h *Handler) RegisterProtectedUpload(c *fiber.Ctx) error {
+	file, err := c.FormFile("file")
+	if err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error": "video file required",
+		})
+	}
+
+	// validate video type
+	if !strings.HasPrefix(file.Header.Get("Content-Type"), "video/") {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error": "only video files allowed",
+		})
+	}
+
+	jobID := uuid.New()
+	jobDir := filepath.Join("/tmp/vidpiracy", jobID.String())
+
+	if err := os.MkdirAll(jobDir, 0755); err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"error": "dir create fail",
+		})
+	}
+
+	videoPath := filepath.Join(jobDir, "source_video.mp4")
+
+	if err := c.SaveFile(file, videoPath); err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"error": "file save fail",
+		})
+	}
+
+	// push to queue
+	msg := models.QueueMessage{
+		JobID:  jobID,
+		URL:    videoPath,
+		Action: "register_upload",
+	}
+
+	if err := h.publisher.PublishScanJob(c.Context(), msg); err != nil {
+		log.Error().Err(err).Msg("register upload job publish fail")
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"error": "registration queue mein daalne mein dikkat",
+		})
+	}
+
+	return c.Status(fiber.StatusAccepted).JSON(fiber.Map{
+		"job_id": jobID.String(),
+		"path":   videoPath,
+		"status": "queued",
+	})
+}
+
+// this function handles direct video uploads 
+func (h *Handler) SubmitScanUpload(c *fiber.Ctx) error {
+	file, err := c.FormFile("file")
+	if err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error": "video file required",
+		})
+	}
+	
+	// Checks video type : Saves from unwanted .zip  .exes files
+	if !strings.HasPrefix(file.Header.Get("Content-Type"), "video/") {
+	return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+		"error": "only video files allowed",
+		})
+	}
+
+	jobID := uuid.New()
+	jobDir := filepath.Join("/tmp/vidpiracy", jobID.String())
+
+	if err := os.MkdirAll(jobDir, 0755); err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"error": "dir create fail",
+		})
+	}
+
+	// SAME naming as downloader
+	videoPath := filepath.Join(jobDir, "source_video.mp4")
+
+	if err := c.SaveFile(file, videoPath); err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"error": "file save fail",
+		})
+	}
+
+	// push to queue
+	msg := models.QueueMessage{
+		JobID:  jobID,
+		URL:    videoPath,     // now it's local path
+		Action: "scan_upload", //  important
+	}
+
+	if err := h.publisher.PublishScanJob(c.Context(), msg); err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"error": "queue fail",
+		})
+	}
+
+	return c.Status(fiber.StatusAccepted).JSON(fiber.Map{
+		"job_id": jobID.String(),
+		"path":   videoPath, // returning saved location
+		"status": "queued",
+	})
 }
 
 func (h *Handler) SubmitScan(c *fiber.Ctx) error {
