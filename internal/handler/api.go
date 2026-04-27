@@ -39,6 +39,62 @@ func (h *Handler) RegisterRoutes(app *fiber.App) {
 
 	// New Post Endpoint to Uploada video
 	api.Post("/scan/upload", h.SubmitScanUpload)
+
+	// New Post Endpoint to upload Video
+	api.Post("/protected/upload", h.RegisterProtectedUpload)
+}
+
+func (h *Handler) RegisterProtectedUpload(c *fiber.Ctx) error {
+	file, err := c.FormFile("file")
+	if err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error": "video file required",
+		})
+	}
+
+	// validate video type
+	if !strings.HasPrefix(file.Header.Get("Content-Type"), "video/") {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error": "only video files allowed",
+		})
+	}
+
+	jobID := uuid.New()
+	jobDir := filepath.Join("/tmp/vidpiracy", jobID.String())
+
+	if err := os.MkdirAll(jobDir, 0755); err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"error": "dir create fail",
+		})
+	}
+
+	videoPath := filepath.Join(jobDir, "source_video.mp4")
+
+	if err := c.SaveFile(file, videoPath); err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"error": "file save fail",
+		})
+	}
+
+	// push to queue
+	msg := models.QueueMessage{
+		JobID:  jobID,
+		URL:    videoPath,
+		Action: "register_upload",
+	}
+
+	if err := h.publisher.PublishScanJob(c.Context(), msg); err != nil {
+		log.Error().Err(err).Msg("register upload job publish fail")
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"error": "registration queue mein daalne mein dikkat",
+		})
+	}
+
+	return c.Status(fiber.StatusAccepted).JSON(fiber.Map{
+		"job_id": jobID.String(),
+		"path":   videoPath,
+		"status": "queued",
+	})
 }
 
 // this function handles direct video uploads 
@@ -54,8 +110,8 @@ func (h *Handler) SubmitScanUpload(c *fiber.Ctx) error {
 	if !strings.HasPrefix(file.Header.Get("Content-Type"), "video/") {
 	return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
 		"error": "only video files allowed",
-	})
-}
+		})
+	}
 
 	jobID := uuid.New()
 	jobDir := filepath.Join("/tmp/vidpiracy", jobID.String())

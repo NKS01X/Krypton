@@ -98,7 +98,7 @@ func (r *VideoRepo) InsertPhashes(ctx context.Context, phashes []models.FramePha
 	return nil
 }
 
-func (r *VideoRepo) GetPhashMatches(ctx context.Context, phashValue uint64, excludeVideoID uuid.UUID, threshold int) ([]PhashMatch, error) {
+func (r *VideoRepo) GetPhashMatches(ctx context.Context, phashValue int64, excludeVideoID uuid.UUID, threshold int) ([]PhashMatch, error) {
 	query := `
 	SELECT fp.video_id, fp.frame_index, fp.timestamp_sec, fp.phash_value,
 	       length(replace((fp.phash_value # $1::bigint)::bit(64)::text, '0', '')) AS hamming_distance
@@ -121,7 +121,7 @@ func (r *VideoRepo) GetPhashMatches(ctx context.Context, phashValue uint64, excl
 		if err := rows.Scan(&m.VideoID, &m.FrameIndex, &m.TimestampSec, &dbPhash, &m.HammingDistance); err != nil {
 			return nil, fmt.Errorf("scan phash match fail: %w", err)
 		}
-		m.PhashValue = uint64(dbPhash)
+		m.PhashValue = int64(dbPhash)
 		m.Similarity = 1.0 - float64(m.HammingDistance)/64.0
 		matches = append(matches, m)
 	}
@@ -173,7 +173,7 @@ type PhashMatch struct {
 	VideoID         uuid.UUID
 	FrameIndex      int
 	TimestampSec    float64
-	PhashValue      uint64
+	PhashValue      int64
 	HammingDistance int
 	Similarity      float64
 }

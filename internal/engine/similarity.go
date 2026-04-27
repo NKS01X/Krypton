@@ -33,6 +33,8 @@ func NewSimilarityEngine(cfg *config.AppConfig, videoRepo *repository.VideoRepo,
 	}
 }
 
+
+// this function handles the Uploaded video, starts from frame extraction
 func (e *SimilarityEngine) ProcessUploadedVideo(
 	ctx context.Context,
 	videoPath string,
@@ -252,6 +254,116 @@ func (e *SimilarityEngine) ProcessAndScan(ctx context.Context, scanURL string, j
 		Msg("scan pipeline complete")
 
 	return result, nil
+}
+
+
+// This function Does the same ase func "RegisterProtectedContent", Just skips the download process, as frontend is directly uploading video content
+func (e *SimilarityEngine) RegisterProtectedUploaded(
+	ctx context.Context,
+	video *models.ProtectedVideo,
+	videoPath string,
+	) error {
+
+	log.Info().
+		Str("video_id", video.ID.String()).
+		Str("path", videoPath).
+		Msg("protected upload registration shuru")
+
+	if video.Title == "" {
+		video.Title = "uploaded_video"
+	}
+
+	// Step 1: insert video
+	if err := e.videoRepo.InsertVideo(ctx, video); err != nil {
+		return fmt.Errorf("video insert fail: %w", err)
+	}
+
+	// Step 2: mark processing
+	if err := e.videoRepo.UpdateVideoStatus(ctx, video.ID, "processing"); err != nil {
+		return err
+	}
+
+	// Step 3: tempDir from file path
+	tempDir := filepath.Dir(videoPath)
+	//defer extractor.CleanupDir(tempDir)
+
+	//  NO DOWNLOAD STEP
+
+	// Step 4: extract keyframes
+	frames, err := extractor.ExtractKeyframes(
+		ctx,
+		videoPath,
+		e.cfg.Processing.FrameRateFPS,
+		tempDir,
+	)
+	if err != nil {
+		e.videoRepo.UpdateVideoStatus(ctx, video.ID, "failed")
+		return fmt.Errorf("keyframe extraction fail: %w", err)
+	}
+
+	var phashes []models.FramePhash
+	var embeddings []models.FrameEmbedding
+
+	g, gCtx := errgroup.WithContext(ctx)
+
+	// Step 5: pHash pipeline
+	g.Go(func() error {
+		var pErr error
+		phashes, pErr = hasher.GeneratePhashes(
+			gCtx,
+			frames,
+			video.ID,
+			e.cfg.Processing.MaxConcurrentFrame,
+		)
+		return pErr
+	})
+
+	// Step 6: embedding pipeline
+	g.Go(func() error {
+		var eErr error
+		embeddings, eErr = embedder.GenerateEmbeddings(
+			gCtx,
+			frames,
+			video.ID,
+			e.cfg.Embedder,
+			e.cfg.Processing.MaxConcurrentFrame,
+		)
+		if eErr != nil {
+			return fmt.Errorf("embedding pipeline fail: %w", eErr)
+		}
+		return nil
+	})
+
+	// Step 7: wait
+	if err := g.Wait(); err != nil {
+		e.videoRepo.UpdateVideoStatus(ctx, video.ID, "failed")
+		return fmt.Errorf("processing fail: %w", err)
+	}
+
+	// Step 8: store phashes
+	if err := e.videoRepo.InsertPhashes(ctx, phashes); err != nil {
+		e.videoRepo.UpdateVideoStatus(ctx, video.ID, "failed")
+		return fmt.Errorf("phash store fail: %w", err)
+	}
+
+	// Step 9: store embeddings
+	if err := e.vectorRepo.InsertEmbeddings(ctx, embeddings); err != nil {
+		e.videoRepo.UpdateVideoStatus(ctx, video.ID, "failed")
+		return fmt.Errorf("embedding store fail: %w", err)
+	}
+
+	// Step 10: done
+	if err := e.videoRepo.UpdateVideoStatus(ctx, video.ID, "done"); err != nil {
+		return err
+	}
+
+	log.Info().
+		Str("video_id", video.ID.String()).
+		Int("phash_count", len(phashes)).
+		Int("embedding_count", len(embeddings)).
+		Msg("protected upload registered")
+
+	return nil
 }
 
 func (e *SimilarityEngine) RegisterProtectedContent(ctx context.Context, video *models.ProtectedVideo) error {

@@ -38,7 +38,7 @@ CREATE TABLE IF NOT EXISTS frame_embeddings (
     video_id        UUID NOT NULL REFERENCES protected_videos(id) ON DELETE CASCADE,
     frame_index     INT NOT NULL,
     timestamp_sec   FLOAT NOT NULL,
-    embedding       vector(512),            -- CLIP ViT-B/32 = 512 dims
+    embedding       vector(1024),            -- CLIP ViT-B/32 = 512 dims
     created_at      TIMESTAMPTZ DEFAULT NOW(),
 
     UNIQUE(video_id, frame_index)

@@ -26,8 +26,8 @@ type FramePhash struct {
 	VideoID      uuid.UUID `json:"video_id" db:"video_id"`
 	FrameIndex   int       `json:"frame_index" db:"frame_index"`
 	TimestampSec float64   `json:"timestamp_sec" db:"timestamp_sec"`
-	PhashValue   uint64    `json:"phash_value" db:"phash_value"`
-	DhashValue   *uint64   `json:"dhash_value,omitempty" db:"dhash_value"`
+	PhashValue   int64    `json:"phash_value" db:"phash_value"`
+	DhashValue   *int64   `json:"dhash_value,omitempty" db:"dhash_value"`
 	CreatedAt    time.Time `json:"created_at" db:"created_at"`
 }
 

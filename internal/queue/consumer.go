@@ -141,6 +141,31 @@ func (c *Consumer) handleMessage(ctx context.Context, msg amqp.Delivery) {
 			Bool("copyright", result.IsCopyrightFlag).
 			Msg("upload scan complete")
 
+
+	// This handles the Registering the content when diectly uploaded by frontend
+	case "register_upload":
+			video := &models.ProtectedVideo{
+			ID:        queueMsg.JobID,   // ✅ FIX
+			SourceURL: queueMsg.URL,
+			Status:    "pending",
+			Title:     "uploaded_video",   // fallback
+		}
+
+		err := c.engine.RegisterProtectedUploaded(ctx, video, queueMsg.URL)
+		if err != nil {
+			log.Error().Err(err).Str("job_id", queueMsg.JobID.String()).Msg("register upload fail")
+			if msg.Redelivered {
+				msg.Nack(false, false)
+			} else {
+				msg.Nack(false, true)
+			}
+			return
+		}
+
+		log.Info().
+			Str("job_id", queueMsg.JobID.String()).
+			Msg("protected upload registration complete")
+
 	case "register":
 		video := &models.ProtectedVideo{
 			SourceURL: queueMsg.URL,
