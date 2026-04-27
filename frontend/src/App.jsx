@@ -10,16 +10,6 @@ import ImagePage from "./ImagePage";
 const rand = (a, b) => Math.floor(Math.random() * (b - a + 1)) + a;
 const clamp = (v, lo, hi) => Math.min(hi, Math.max(lo, v));
 
-function generateResults() {
-  const video = rand(40, 98), audio = rand(30, 95), text = rand(20, 90), metadata = rand(35, 97);
-  const piracyScore = clamp(Math.round(video * 0.35 + audio * 0.25 + text * 0.2 + metadata * 0.2), 0, 100);
-  const segs = ["Intro", "Opening", "Scene 1", "Scene 2", "Scene 3", "Scene 4", "Scene 5", "Scene 6", "Credits", "End"];
-  const tms = ["00:00", "02:30", "05:00", "07:30", "10:00", "12:30", "15:00", "17:30", "20:00", "22:30"];
-  const timeline = segs.map((label, i) => ({ time: tms[i], label, confidence: clamp(piracyScore + rand(-35, 30), 5, 100) }));
-  const scanId = `PSH-${new Date().getFullYear()}-${rand(1000, 9999)}`;
-  const timestamp = new Date().toLocaleString("en-US", { dateStyle: "medium", timeStyle: "short" });
-  return { piracyScore, video, audio, text, metadata, timeline, scanId, timestamp };
-}
 
 /* Refined palette — indigo/violet brand, teal secondary, amber warning */
 const COLORS = {
@@ -112,38 +102,88 @@ function InputPhase({ onStart }) {
   const hasInput = url.trim().length > 0 || !!file;
 
   return (
-    <div className="input-phase">
-      <motion.div className="card input-card"
+    <div className="input-phase" style={{ display: "flex", justifyContent: "center", alignItems: "center", padding: "40px 20px" }}>
+      <motion.div
+        className="card"
+        style={{ width: "100%", maxWidth: "700px", padding: "40px", display: "flex", flexDirection: "column", gap: "24px", position: "relative", overflow: "hidden" }}
         initial={{ opacity: 0, y: 32, scale: 0.95 }}
         animate={{ opacity: 1, y: 0, scale: 1 }}
-        transition={{ duration: 0.65, ease }}>
-        <h1>AI Content Analysis</h1>
-        <p className="subtitle">Upload a video or paste a URL to detect pirated content using deep fingerprinting &amp; spectral analysis.</p>
-        <div className="url-input-group">
-          <input id="url-input" type="text" className="url-input" placeholder="Paste video URL here..."
-            value={url} onChange={e => { setUrl(e.target.value); if (e.target.value.trim()) setFile(null); }} />
+        transition={{ duration: 0.65, ease }}
+      >
+        <div style={{ position: "absolute", top: "-100px", left: "-100px", width: "300px", height: "300px", background: "var(--accent-primary)", filter: "blur(150px)", opacity: 0.15 }} />
+
+        <div style={{ textAlign: "center", marginBottom: "8px", position: "relative", zIndex: 1 }}>
+          <h1 style={{ fontSize: "32px", fontWeight: "800", background: "linear-gradient(135deg, #fff 30%, var(--accent-primary))", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent", marginBottom: "12px" }}>
+            Video Piracy Detection
+          </h1>
+          <p style={{ color: "var(--text-muted)", fontSize: "16px", lineHeight: "1.5" }}>
+            Upload a video or paste a URL to detect pirated content using deep fingerprinting & spectral analysis.
+          </p>
         </div>
-        <div className="divider">or</div>
-        {file ? (
-          <div className="file-selected">
-            <span>📎</span><span>{file.name}</span>
-            <span style={{ color: "var(--text-muted)", fontSize: 11 }}>({(file.size / 1048576).toFixed(1)} MB)</span>
-            <button className="remove-file" onClick={() => setFile(null)}>✕</button>
+
+        <div style={{ display: "flex", flexDirection: "column", gap: "20px", position: "relative", zIndex: 1 }}>
+          <div style={{ display: "flex", background: "rgba(0,0,0,0.3)", border: "1px solid var(--border-glass)", borderRadius: "12px", overflow: "hidden", transition: "all 0.2s", boxShadow: "inset 0 2px 10px rgba(0,0,0,0.2)" }}>
+            <div style={{ padding: "16px", color: "var(--text-muted)", display: "flex", alignItems: "center" }}>🔗</div>
+            <input
+              id="url-input" type="text"
+              style={{ flex: 1, background: "transparent", border: "none", color: "var(--text-primary)", fontSize: "15px", padding: "16px 16px 16px 0", outline: "none" }}
+              placeholder="Paste video URL here (e.g. https://...)"
+              value={url} onChange={e => { setUrl(e.target.value); if (e.target.value.trim()) setFile(null); }}
+            />
           </div>
-        ) : (
-          <div className={`dropzone ${dragActive ? "drag-active" : ""}`}
-            onDrop={e => { e.preventDefault(); setDragActive(false); const f = e.dataTransfer.files?.[0]; if (f) { setFile(f); setUrl(""); } }}
-            onDragOver={e => { e.preventDefault(); setDragActive(true); }} onDragLeave={() => setDragActive(false)}
-            onClick={() => fRef.current?.click()}>
-            <div className="dropzone-icon">🎬</div>
-            <p className="dropzone-text">Drag &amp; drop your video file here</p>
-            <p className="dropzone-hint">MP4, AVI, MKV, MOV — up to 2GB</p>
-            <input ref={fRef} type="file" accept="video/*" style={{ display: "none" }}
-              onChange={e => { const f = e.target.files?.[0]; if (f) { setFile(f); setUrl(""); } }} />
+
+          <div style={{ display: "flex", alignItems: "center", gap: "16px" }}>
+            <div style={{ height: "1px", flex: 1, background: "var(--border-glass)" }} />
+            <span style={{ color: "var(--text-muted)", fontSize: "12px", fontWeight: "600", letterSpacing: "0.1em" }}>OR</span>
+            <div style={{ height: "1px", flex: 1, background: "var(--border-glass)" }} />
           </div>
-        )}
-        <button className="btn-primary" disabled={!hasInput} onClick={() => onStart()}>
-          {hasInput ? "Start Analysis" : "Provide a URL or file to begin"}
+
+          {file ? (
+            <motion.div initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} style={{ padding: "20px", background: "rgba(99, 102, 241, 0.1)", border: "1px solid var(--accent-primary)", borderRadius: "12px", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+              <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
+                <div style={{ width: "40px", height: "40px", background: "var(--accent-primary)", borderRadius: "8px", display: "flex", justifyContent: "center", alignItems: "center", fontSize: "20px" }}>🎬</div>
+                <div>
+                  <div style={{ fontWeight: "600", color: "var(--text-primary)", fontSize: "15px" }}>{file.name}</div>
+                  <div style={{ color: "var(--text-muted)", fontSize: "13px" }}>{(file.size / 1048576).toFixed(1)} MB</div>
+                </div>
+              </div>
+              <button onClick={() => setFile(null)} style={{ width: "32px", height: "32px", borderRadius: "50%", background: "rgba(255,255,255,0.1)", border: "none", color: "var(--text-primary)", cursor: "pointer", display: "flex", justifyContent: "center", alignItems: "center", transition: "all 0.2s" }} onMouseOver={e => e.currentTarget.style.background = "rgba(255,0,0,0.2)"} onMouseOut={e => e.currentTarget.style.background = "rgba(255,255,255,0.1)"}>✕</button>
+            </motion.div>
+          ) : (
+            <div
+              className={`dropzone ${dragActive ? "drag-active" : ""}`}
+              style={{ border: `2px dashed ${dragActive ? "var(--accent-primary)" : "var(--border-glass)"}`, background: dragActive ? "rgba(99,102,241,0.05)" : "var(--bg-card-solid)", padding: "40px 20px", borderRadius: "12px", textAlign: "center", cursor: "pointer", transition: "all 0.2s" }}
+              onDrop={e => { e.preventDefault(); setDragActive(false); const f = e.dataTransfer.files?.[0]; if (f) { setFile(f); setUrl(""); } }}
+              onDragOver={e => { e.preventDefault(); setDragActive(true); }} onDragLeave={() => setDragActive(false)}
+              onClick={() => fRef.current?.click()}
+            >
+              <div style={{ fontSize: "40px", marginBottom: "16px", opacity: 0.8 }}>📤</div>
+              <p style={{ fontSize: "16px", fontWeight: "600", color: "var(--text-primary)", marginBottom: "8px" }}>Drag & drop your video file here</p>
+              <p style={{ fontSize: "14px", color: "var(--text-muted)" }}>Supports MP4, AVI, MKV, MOV (Max 2GB)</p>
+              <input ref={fRef} type="file" accept="video/*" style={{ display: "none" }} onChange={e => { const f = e.target.files?.[0]; if (f) { setFile(f); setUrl(""); } }} />
+            </div>
+          )}
+        </div>
+
+        <button
+          className="btn-primary"
+          style={{
+            width: "100%",
+            padding: "16px",
+            fontSize: "16px",
+            fontWeight: "700",
+            letterSpacing: "0.5px",
+            marginTop: "10px"
+          }}
+          disabled={!hasInput}
+          onClick={() =>
+            onStart({
+              file,
+              url
+            })
+          }
+        >
+          {hasInput ? "🚀 Start Security Analysis" : "Provide a URL or file to begin"}
         </button>
       </motion.div>
     </div>
@@ -159,31 +199,112 @@ const STEPS = [
   { label: "Finalizing results…", icon: "📊" },
 ];
 
-function ProcessingPhase({ onComplete }) {
+
+function ProcessingPhase({ onComplete, inputData }) {
   const [progress, setProgress] = useState(0);
   const [step, setStep] = useState(0);
   const [msgKey, setMsgKey] = useState(0);
-  const dur = useRef(rand(2800, 3500));
 
   useEffect(() => {
-    const start = performance.now();
-    let raf;
-    const tick = (now) => {
-      const t = Math.min((now - start) / dur.current, 1);
-      let eased;
-      if (t < 0.3) eased = (t / 0.3) * 0.45;
-      else if (t < 0.8) eased = 0.45 + ((t - 0.3) / 0.5) * 0.4;
-      else eased = 0.85 + ((t - 0.8) / 0.2) * 0.15 * (1 - Math.pow(1 - (t - 0.8) / 0.2, 2));
-      const pct = Math.min(100, Math.round(eased * 100));
-      setProgress(pct);
-      const si = Math.min(STEPS.length - 1, Math.floor((pct / 100) * STEPS.length));
-      setStep(prev => { if (si !== prev) setMsgKey(k => k + 1); return si; });
-      if (t < 1) raf = requestAnimationFrame(tick);
-      else setTimeout(onComplete, 450);
+    let interval;
+
+    const startFakeProgress = () => {
+      interval = setInterval(() => {
+        setProgress((p) => (p < 95 ? p + 3 : p));
+
+        const si = Math.min(STEPS.length - 1, Math.floor((progress / 100) * STEPS.length));
+        setStep(prev => {
+          if (si !== prev) setMsgKey(k => k + 1);
+          return si;
+        });
+
+      }, 200);
     };
-    raf = requestAnimationFrame(tick);
-    return () => cancelAnimationFrame(raf);
-  }, [onComplete]);
+
+    const uploadAndPoll = async () => {
+      try {
+        console.log("🔥 INPUT DATA:", inputData);
+
+        let res;
+
+        // 🔹 STEP 1: HANDLE FILE OR URL
+        if (inputData?.file) {
+          const formData = new FormData();
+          formData.append("file", inputData.file);
+
+          res = await fetch("http://localhost:8080/api/v1/scan/upload", {
+            method: "POST",
+            body: formData,
+          });
+
+        } else if (inputData?.url) {
+          res = await fetch("http://localhost:8080/api/v1/scan", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({ url: inputData.url }),
+          });
+
+        } else {
+          throw new Error("No input provided");
+        }
+
+        const uploadData = await res.json();
+        const jobId = uploadData.job_id;
+
+        if (!jobId) {
+          throw new Error("No job_id returned");
+        }
+
+        console.log("🚀 Job ID:", jobId);
+
+        // 🔹 STEP 2: START PROGRESS
+        const progressInterval = setInterval(() => {
+          setProgress((p) => (p < 95 ? p + 5 : p));
+        }, 300);
+
+        // 🔹 STEP 3: POLLING
+        const pollInterval = setInterval(async () => {
+          try {
+            const res = await fetch(`http://localhost:8080/api/v1/scan/${jobId}`);
+            const data = await res.json();
+
+            console.log("📊 Poll:", data);
+
+            if (data.status === "done" || data.status === "completed") {
+              clearInterval(pollInterval);
+              clearInterval(progressInterval);
+
+              setProgress(100);
+
+              // 🔥 FORMAT RESPONSE (MATCH YOUR BACKEND)
+              const formatted = {
+                job_id: data.job_id,
+                status: data.status,
+                copyright_flag: data.copyright_flag,
+                confidence: Math.round((data.confidence || 0) * 100),
+                phash_score: Math.round((data.phash_score || 0) * 100),
+                vector_score: Math.round((data.vector_score || 0) * 100),
+                matched_video_id: data.matched_video_id,
+                timestamp: new Date().toLocaleString(),
+              };
+
+              setTimeout(() => onComplete(formatted), 500);
+            }
+
+          } catch (err) {
+            console.error("❌ Polling error:", err);
+          }
+        }, 2000);
+
+      } catch (err) {
+        console.error("❌ Upload error:", err);
+      }
+    };
+    uploadAndPoll();
+    return () => clearInterval(interval);
+  }, [inputData, onComplete]);
 
   const r = 68, circ = 2 * Math.PI * r;
 
@@ -228,171 +349,139 @@ function ChartTooltip({ active, payload, label }) {
   );
 }
 
-/* ═══ AI Insights ═══ */
-function AIInsights({ data }) {
-  const { video, audio, text, metadata, piracyScore, timeline } = data;
-  const peak = timeline.reduce((a, b) => b.confidence > a.confidence ? b : a, timeline[0]);
-  const strongest = [{ n: "Video", v: video }, { n: "Audio", v: audio }, { n: "Text", v: text }, { n: "Metadata", v: metadata }]
-    .sort((a, b) => b.v - a.v)[0];
-  const riskWord = piracyScore > 70 ? "high" : piracyScore > 40 ? "moderate" : "low";
-
-  return (
-    <motion.div className="card insights-card" {...cardEntry(12)}>
-      <div className="insights-header">
-        <div className="insights-title">🧠 AI Insights Summary</div>
-        <p className="insights-subtitle">Automated analysis conclusions based on multi-model detection</p>
-      </div>
-      <div className="insights-grid">
-        <div className="insights-col">
-          <h3>Key Observations</h3>
-          <div className="insight-item"><span className="insight-dot" style={{ background: COLORS.red }} />
-            <span>High-risk spike detected at <strong>{peak.time}</strong> ({peak.confidence}% confidence)</span></div>
-          <div className="insight-item"><span className="insight-dot" style={{ background: COLORS.indigo }} />
-            <span>{strongest.n} similarity is the strongest signal at <strong>{strongest.v}%</strong></span></div>
-          <div className="insight-item"><span className="insight-dot" style={{ background: COLORS.amber }} />
-            <span>Metadata shows {metadata > 60 ? "strong" : "moderate"} matching patterns ({metadata}%)</span></div>
-          <div className="insight-item"><span className="insight-dot" style={{ background: COLORS.teal }} />
-            <span>Text/subtitle similarity is {text > 50 ? "notable" : "minimal"} ({text}%)</span></div>
-        </div>
-        <div className="insights-col">
-          <h3>AI Conclusion</h3>
-          <div className="conclusion-box">
-            <p>Content shows <strong>{riskWord} indicators of reuse</strong>. {
-              piracyScore > 70
-                ? "Multiple detection models confirm significant content overlap. Immediate review is strongly recommended."
-                : piracyScore > 40
-                  ? "Partial similarity detected across several signals. Manual verification is recommended before action."
-                  : "Low similarity across most signals. Content appears largely original, but periodic monitoring is suggested."
-            }</p>
-          </div>
-        </div>
-      </div>
-    </motion.div>
-  );
-}
-
 /* ═══ PHASE 3: Results ═══ */
 function ResultsPhase({ data, onNewScan }) {
-  const { piracyScore, video, audio, text, metadata, timeline, scanId, timestamp } = data;
-  const si = scoreInfo(piracyScore);
-
-  /* Each breakdown card uses a distinct but harmonious color from the palette */
-  const breakdown = [
-    { id: "video", label: "Video Match", value: video, icon: "🎬", color: COLORS.indigo, grad: [COLORS.indigo, COLORS.indigoLight], desc: "Frame-by-frame visual fingerprint" },
-    { id: "audio", label: "Audio Match", value: audio, icon: "🎵", color: COLORS.teal, grad: [COLORS.teal, COLORS.tealLight], desc: "Spectral waveform comparison" },
-    { id: "text", label: "Text / Subtitles", value: text, icon: "📝", color: COLORS.violet, grad: [COLORS.violet, COLORS.violetLight], desc: "OCR + NLP alignment check" },
-    { id: "metadata", label: "Metadata", value: metadata, icon: "🔍", color: COLORS.amber, grad: [COLORS.amber, COLORS.amberLight], desc: "Container & encoding match" },
-  ];
+  const { job_id, status, confidence, phash_score, vector_score, copyright_flag, matched_video_id, timestamp } = data;
+  const si = scoreInfo(confidence);
   const r = 92, circ = 2 * Math.PI * r;
 
   return (
     <motion.div className="results-phase" initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.4, delay: 0.1 }}>
-      {/* Header */}
-      <motion.div className="report-header" {...cardEntry(0)}>
-        <h1>Content Analysis Report</h1>
-        <div className="report-meta">
-          <span>Scan ID: <span className="mono">{scanId}</span></span>
-          <span className="separator">·</span><span>{timestamp}</span>
-        </div>
-        <div className={`status-badge ${si.cls}`}><span style={{ fontSize: 8 }}>●</span>{si.label}</div>
-      </motion.div>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(12, 1fr)", gap: "24px", minWidth: 0 }}>
 
-      {/* Score + Breakdown */}
-      <div className="score-section">
-        <motion.div className="card score-ring-card"
-          initial={{ opacity: 0, y: 30, scale: 0.88 }}
-          animate={{ opacity: 1, y: 0, scale: 1 }}
-          transition={{ duration: 0.7, delay: 0.2, ease }}>
-          <div className="score-ring-wrapper">
-            <svg viewBox="0 0 210 210">
+        {/* ── TOP SECTION: FULL WIDTH HEADER ── */}
+        <motion.div className="card" style={{ gridColumn: "span 12", display: "flex", flexWrap: "wrap", justifyContent: "space-between", alignItems: "center", padding: "20px 24px", minWidth: 0 }} {...cardEntry(0)}>
+          <div>
+            <h1 style={{ fontSize: "24px", fontWeight: "800", background: "linear-gradient(135deg, #fff 30%, var(--accent-primary))", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent", margin: 0, marginBottom: "8px" }}>
+              Video Analysis Report
+            </h1>
+            <div className="report-meta" style={{ color: "var(--text-muted)", fontSize: "14px" }}>
+              <span>Job ID: <span style={{ fontFamily: "monospace", color: "var(--text-primary)" }}>{job_id}</span></span>
+              <span style={{ margin: "0 8px" }}>·</span><span>{timestamp}</span>
+            </div>
+          </div>
+          <div style={{ display: "flex", alignItems: "center", gap: "16px" }}>
+            <div style={{ padding: "6px 12px", borderRadius: "99px", background: copyright_flag ? `${COLORS.red}15` : `${COLORS.teal}15`, border: `1px solid ${copyright_flag ? COLORS.red : COLORS.teal}40`, color: copyright_flag ? COLORS.red : COLORS.teal, fontSize: "12px", fontWeight: "700", display: "flex", alignItems: "center", gap: "6px" }}>
+              <span style={{ fontSize: "8px" }}>●</span>{copyright_flag ? "Pirated Content Detected" : "Clean"}
+            </div>
+            <button onClick={onNewScan} style={{ padding: "10px 20px", borderRadius: "8px", background: "var(--bg-card-solid)", border: "1px solid var(--border-glass)", color: "var(--text-primary)", fontWeight: "600", cursor: "pointer", transition: "all 0.2s" }} onMouseOver={e => e.currentTarget.style.background = "rgba(255,255,255,0.05)"} onMouseOut={e => e.currentTarget.style.background = "var(--bg-card-solid)"}>
+              ↻ New Scan
+            </button>
+          </div>
+        </motion.div>
+
+        {/* ── LEFT COLUMN: MAIN RISK ANALYSIS ── */}
+        <motion.div className="card card-hover" style={{ gridColumn: "span 4", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: "40px 24px", position: "relative", overflow: "hidden", minWidth: 0 }} {...cardEntry(1)}>
+          <div style={{ position: "absolute", top: "-50px", left: "-50px", width: "150px", height: "150px", background: si.color, filter: "blur(100px)", opacity: 0.15 }} />
+
+          <h2 style={{ fontSize: "14px", fontWeight: "700", color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.1em", marginBottom: "30px", alignSelf: "flex-start" }}>Risk Analysis</h2>
+
+          <div className="score-ring-wrapper" style={{ marginBottom: "24px" }}>
+            <svg viewBox="0 0 210 210" style={{ width: "180px", height: "180px" }}>
               <circle className="score-ring-bg" cx="105" cy="105" r={r} />
               <motion.circle className="score-ring-fill score-ring-glow" cx="105" cy="105" r={r}
                 stroke={si.color} strokeDasharray={circ}
                 initial={{ strokeDashoffset: circ }}
-                animate={{ strokeDashoffset: circ - (circ * piracyScore) / 100 }}
+                animate={{ strokeDashoffset: circ - (circ * confidence) / 100 }}
                 transition={{ duration: 2.2, ease: [0.22, 1, 0.36, 1], delay: 0.35 }}
                 style={{ color: si.color }} />
             </svg>
             <div className="score-center">
-              <span className="score-value" style={{ color: si.color }}>
-                <AnimatedCounter value={piracyScore} color={si.color} suffix="%" duration={2200} delay={350} />
+              <span className="score-value" style={{ color: si.color, fontSize: "42px", fontWeight: "800" }}>
+                <AnimatedCounter value={confidence} color={si.color} suffix="%" duration={2200} delay={350} />
               </span>
-              <div className="score-risk-row">
-                <span className="score-label-tag" style={{ color: si.color, background: `${si.color}14` }}>{si.label}</span>
-              </div>
+              <span style={{ color: si.color, fontSize: "12px", fontWeight: "700", marginTop: "4px", background: `${si.color}20`, padding: "4px 8px", borderRadius: "4px" }}>{si.label}</span>
             </div>
           </div>
-          <p className="score-subtitle">Composite AI confidence across<br />all detection models</p>
+          <p style={{ color: "var(--text-muted)", fontSize: "14px", textAlign: "center", lineHeight: "1.5" }}>
+            Composite AI confidence across <br />all detection models
+          </p>
         </motion.div>
 
-        <div className="breakdown-grid">
-          {breakdown.map((item, i) => (
-            <motion.div key={item.id} className="card card-hover breakdown-card" {...cardEntry(i + 3)}>
-              <div className="breakdown-card-header">
-                <div className="breakdown-info">
-                  <span className="breakdown-icon">{item.icon}</span>
-                  <div><div className="breakdown-label">{item.label}</div><div className="breakdown-desc">{item.desc}</div></div>
+        {/* ── RIGHT COLUMN: SUPPORT DATA ── */}
+        <div style={{ gridColumn: "span 8", display: "grid", gridTemplateColumns: "1fr", gap: "24px", minWidth: 0 }}>
+
+          {/* Match Breakdown Grid */}
+          <motion.div className="card card-hover" style={{ padding: "24px", minWidth: 0 }} {...cardEntry(2)}>
+            <h2 style={{ fontSize: "14px", fontWeight: "700", color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.1em", marginBottom: "20px" }}>Signal Breakdown</h2>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: "20px" }}>
+
+              <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                    <span style={{ fontSize: "16px" }}>🎥</span>
+                    <span style={{ fontSize: "14px", fontWeight: "600", color: "var(--text-primary)" }}>pHash Similarity</span>
+                  </div>
+                  <span style={{ color: COLORS.indigo, fontWeight: "700", fontSize: "14px" }}>
+                    <AnimatedCounter value={phash_score} color={COLORS.indigo} suffix="%" duration={1800} delay={400} />
+                  </span>
                 </div>
-                <span className="breakdown-value" style={{ color: item.color }}>
-                  <AnimatedCounter value={item.value} color={item.color} suffix="%" duration={1800} delay={400 + i * 100} />
-                </span>
+                <div style={{ height: "6px", background: "var(--bg-primary)", borderRadius: "99px", overflow: "hidden" }}>
+                  <motion.div style={{ height: "100%", background: `linear-gradient(90deg, ${COLORS.indigo}, ${COLORS.indigoLight})`, borderRadius: "99px" }}
+                    initial={{ width: 0 }} animate={{ width: `${phash_score}%` }} transition={{ duration: 1.4, delay: 0.45, ease: [0.22, 1, 0.36, 1] }} />
+                </div>
+                <div style={{ fontSize: "12px", color: "var(--text-muted)" }}>Perceptual hash collision</div>
               </div>
-              <div className="progress-track">
-                <motion.div className="progress-fill"
-                  style={{ background: `linear-gradient(90deg, ${item.grad[0]}, ${item.grad[1]})` }}
-                  initial={{ width: 0 }} animate={{ width: `${item.value}%` }}
-                  transition={{ duration: 1.4, delay: 0.45 + i * 0.1, ease }} />
+
+              <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                    <span style={{ fontSize: "16px" }}>🧠</span>
+                    <span style={{ fontSize: "14px", fontWeight: "600", color: "var(--text-primary)" }}>Vector Score</span>
+                  </div>
+                  <span style={{ color: COLORS.teal, fontWeight: "700", fontSize: "14px" }}>
+                    <AnimatedCounter value={vector_score} color={COLORS.teal} suffix="%" duration={1800} delay={500} />
+                  </span>
+                </div>
+                <div style={{ height: "6px", background: "var(--bg-primary)", borderRadius: "99px", overflow: "hidden" }}>
+                  <motion.div style={{ height: "100%", background: `linear-gradient(90deg, ${COLORS.teal}, ${COLORS.tealLight})`, borderRadius: "99px" }}
+                    initial={{ width: 0 }} animate={{ width: `${vector_score}%` }} transition={{ duration: 1.4, delay: 0.55, ease: [0.22, 1, 0.36, 1] }} />
+                </div>
+                <div style={{ fontSize: "12px", color: "var(--text-muted)" }}>Deep embedding similarity</div>
               </div>
-            </motion.div>
-          ))}
+
+            </div>
+          </motion.div>
+
+          {/* Matched Database Record */}
+          <motion.div className="card card-hover" style={{ padding: "24px", minWidth: 0, border: matched_video_id ? `1px solid ${COLORS.red}40` : `1px solid ${COLORS.teal}40`, background: matched_video_id ? `${COLORS.red}05` : `${COLORS.teal}05` }} {...cardEntry(3)}>
+            <h2 style={{ fontSize: "14px", fontWeight: "700", color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.1em", marginBottom: "16px" }}>Database Match Result</h2>
+            {matched_video_id ? (
+              <div style={{ display: "flex", alignItems: "center", gap: "16px", background: "var(--bg-card)", padding: "16px", borderRadius: "12px", border: "1px solid var(--border-glass)" }}>
+                <div style={{ width: "48px", height: "48px", borderRadius: "8px", background: `${COLORS.red}20`, display: "flex", justifyContent: "center", alignItems: "center", fontSize: "20px" }}>🚨</div>
+                <div>
+                  <div style={{ fontWeight: "600", color: COLORS.red, marginBottom: "4px" }}>Match Found in Registry</div>
+                  <div style={{ color: "var(--text-muted)", fontSize: "13px" }}>ID: <span style={{ fontFamily: "monospace", color: "var(--text-primary)" }}>{matched_video_id}</span></div>
+                </div>
+              </div>
+            ) : (
+              <div style={{ display: "flex", alignItems: "center", gap: "16px", background: "var(--bg-card)", padding: "16px", borderRadius: "12px", border: "1px solid var(--border-glass)" }}>
+                <div style={{ width: "48px", height: "48px", borderRadius: "8px", background: `${COLORS.teal}20`, display: "flex", justifyContent: "center", alignItems: "center", fontSize: "20px" }}>✅</div>
+                <div>
+                  <div style={{ fontWeight: "600", color: COLORS.teal, marginBottom: "4px" }}>No Matches Found</div>
+                  <div style={{ color: "var(--text-muted)", fontSize: "13px" }}>Content appears to be unique in the database.</div>
+                </div>
+              </div>
+            )}
+          </motion.div>
+
         </div>
+
       </div>
 
-      {/* Charts */}
-      <motion.div className="charts-row" {...cardEntry(8)}>
-        <div className="card card-hover chart-card">
-          <h2 className="chart-title">Detection Timeline</h2>
-          <p className="chart-subtitle">AI confidence across content segments</p>
-          <ResponsiveContainer width="100%" height={260}>
-            <AreaChart data={timeline} margin={{ top: 5, right: 5, left: -20, bottom: 5 }}>
-              <defs><linearGradient id="cG" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="0%" stopColor={COLORS.indigo} stopOpacity={0.2} />
-                <stop offset="100%" stopColor={COLORS.indigo} stopOpacity={0} />
-              </linearGradient></defs>
-              <CartesianGrid strokeDasharray="3 3" stroke="rgba(128,128,128,0.06)" vertical={false} />
-              <XAxis dataKey="time" tick={{ fill: "var(--text-muted)", fontSize: 11 }} axisLine={{ stroke: "var(--border-glass)" }} tickLine={false} />
-              <YAxis tick={{ fill: "var(--text-muted)", fontSize: 11 }} axisLine={false} tickLine={false} domain={[0, 100]} tickFormatter={v => `${v}%`} />
-              <Tooltip content={<ChartTooltip />} cursor={{ stroke: "rgba(128,128,128,0.1)" }} />
-              <Area type="monotone" dataKey="confidence" stroke={COLORS.indigo} strokeWidth={2} fill="url(#cG)" dot={false}
-                activeDot={{ r: 4, fill: COLORS.indigo, stroke: "var(--bg-primary)", strokeWidth: 2 }} />
-            </AreaChart>
-          </ResponsiveContainer>
-        </div>
-        <div className="card card-hover chart-card">
-          <h2 className="chart-title">Segment Analysis</h2>
-          <p className="chart-subtitle">Per-segment piracy confidence</p>
-          <ResponsiveContainer width="100%" height={260}>
-            <BarChart data={timeline} margin={{ top: 5, right: 5, left: -20, bottom: 5 }}>
-              <CartesianGrid strokeDasharray="3 3" stroke="rgba(128,128,128,0.06)" vertical={false} />
-              <XAxis dataKey="label" tick={{ fill: "var(--text-muted)", fontSize: 10 }} axisLine={{ stroke: "var(--border-glass)" }} tickLine={false} />
-              <YAxis tick={{ fill: "var(--text-muted)", fontSize: 11 }} axisLine={false} tickLine={false} domain={[0, 100]} tickFormatter={v => `${v}%`} />
-              <Tooltip content={<ChartTooltip />} cursor={{ fill: "rgba(128,128,128,0.03)" }} />
-              <Bar dataKey="confidence" radius={[4, 4, 0, 0]} maxBarSize={28}>
-                {timeline.map((e, i) => <Cell key={i} fill={simColor(e.confidence)} fillOpacity={0.75} />)}
-              </Bar>
-            </BarChart>
-          </ResponsiveContainer>
-        </div>
-      </motion.div>
-
-      <AIInsights data={data} />
-
-      <motion.div className="new-scan-container" {...cardEntry(14)}>
-        <button className="btn-secondary" onClick={onNewScan}>↻ Start New Scan</button>
-      </motion.div>
-      <div className="app-footer">
+      <div className="app-footer" style={{ marginTop: "40px", textAlign: "center", color: "var(--text-muted)", fontSize: "13px" }}>
         <p>PiracyShield AI Engine v3.2 · Deep fingerprinting &amp; spectral analysis</p>
-        <p className="copyright">© 2026 PiracyShield Inc. All rights reserved.</p>
+        <p style={{ marginTop: "8px", opacity: 0.6 }}>© 2026 PiracyShield Inc. All rights reserved.</p>
       </div>
     </motion.div>
   );
@@ -404,10 +493,14 @@ export default function App() {
 
   const [phase, setPhase] = useState("input");
   const [results, setResults] = useState(null);
+  const [inputData, setInputData] = useState(null);
 
-  const onStart = useCallback(() => setPhase("processing"), []);
-  const onDone = useCallback(() => {
-    setResults(generateResults());
+  const onStart = useCallback((data) => {
+    setInputData(data);
+    setPhase("processing");
+  }, []);
+  const onDone = useCallback((apiData) => {
+    setResults(apiData);
     setPhase("results");
   }, []);
   const onNew = useCallback(() => {
@@ -428,41 +521,50 @@ export default function App() {
 
         {/* 🔥 MODE SWITCH */}
         <div style={{
-          position: "fixed",
-          top: 80,
-          right: 20,
-          zIndex: 1000,
           display: "flex",
-          gap: "10px"
+          justifyContent: "center",
+          gap: "16px",
+          padding: "24px 0 0 0",
+          position: "relative",
+          zIndex: 10
         }}>
           <button
             onClick={() => setMode("video")}
             style={{
-              padding: "8px 16px",
-              background: mode === "video" ? "#6366f1" : "#333",
+              padding: "10px 24px",
+              background: mode === "video" ? "var(--accent-primary)" : "var(--bg-card)",
+              border: mode === "video" ? "1px solid var(--accent-primary)" : "1px solid var(--border-glass)",
               color: "white",
-              borderRadius: "8px"
+              borderRadius: "99px",
+              fontWeight: "600",
+              cursor: "pointer",
+              transition: "all 0.2s"
             }}
           >
-            🎬 Video
+            🎬 Video Analysis
           </button>
 
           <button
             onClick={() => setMode("image")}
             style={{
-              padding: "8px 16px",
-              background: mode === "image" ? "#22c55e" : "#333",
+              padding: "10px 24px",
+              background: mode === "image" ? "var(--accent-teal)" : "var(--bg-card)",
+              border: mode === "image" ? "1px solid var(--accent-teal)" : "1px solid var(--border-glass)",
               color: "white",
-              borderRadius: "8px"
+              borderRadius: "99px",
+              fontWeight: "600",
+              cursor: "pointer",
+              transition: "all 0.2s"
             }}
           >
-            📸 Image
+            📸 Image Analysis
           </button>
         </div>
 
         {/* 🔥 CONDITIONAL UI */}
+
         {mode === "image" ? (
-          <ImagePage />   // 👈 your new component
+          <ImagePage />
         ) : (
           <main className="main-container">
             <AnimatePresence mode="wait">
@@ -474,7 +576,7 @@ export default function App() {
 
               {phase === "processing" && (
                 <motion.div key="p2" exit={{ opacity: 0, y: -10 }} transition={{ duration: 0.3 }}>
-                  <ProcessingPhase onComplete={onDone} />
+                  <ProcessingPhase onComplete={onDone} inputData={inputData} />
                 </motion.div>
               )}
 
