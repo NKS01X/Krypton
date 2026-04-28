@@ -39,6 +39,8 @@ Rules:
 - No explanation
 - Queries must be short (max 5 words)
 - Focus on sports/media content
+- Focus on the main character in the image
+- Analyse the timeline of the image
 
 Example:
 {

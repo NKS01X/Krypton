@@ -10,19 +10,15 @@ const { analyzeImage } = require('../gemini');
 
 const router = express.Router();
 
-// ✅ Ensure uploads folder exists
 const uploadDir = path.join(__dirname, '../uploads');
 if (!fs.existsSync(uploadDir)) {
     fs.mkdirSync(uploadDir, { recursive: true });
 }
 
-// multer config
 const upload = multer({ dest: uploadDir });
 
-// delay to prevent overload
 const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 
-// piracy level helper
 const getPiracyLevel = (score) => {
     if (score > 85) return "HIGH ⚠️";
     if (score > 70) return "MEDIUM ⚠️";
@@ -41,19 +37,14 @@ router.post('/', upload.single('image'), async (req, res) => {
 
         console.log("📸 Processing input image...");
 
-        // ✅ Step 1: Embedding
+        // ✅ Embedding
         const inputEmbedding = await getEmbedding(inputImage.path);
 
-        // 🔥 Step 2: Gemini (ENTITY + QUERIES)
+        // ✅ Gemini
         const aiResult = await analyzeImage(inputImage.path);
-
         let queries = aiResult.queries || [];
         const entity = (aiResult.entity || "unknown").toLowerCase();
 
-        console.log("🎯 Detected entity:", entity);
-        console.log("🔍 Queries:", queries);
-
-        // fallback
         if (!queries.length) {
             queries = [
                 "football player",
@@ -65,90 +56,105 @@ router.post('/', upload.single('image'), async (req, res) => {
 
         queries = queries.slice(0, 4);
 
-        // ✅ Step 3: Fetch URLs
-        let allUrls = [];
+        console.log("🔍 Queries:", queries);
+
+        // ✅ Fetch URLs (NOW OBJECTS)
+        let allItems = [];
 
         for (let q of queries) {
-            const urls = await fetchImageUrls(q);
-            allUrls.push(...urls);
+            const items = await fetchImageUrls(q);
+            allItems.push(...items);
         }
 
-        allUrls = [...new Set(allUrls)];
+        // remove duplicates
+        const uniqueMap = new Map();
+        allItems.forEach(item => {
+            if (!uniqueMap.has(item.url)) {
+                uniqueMap.set(item.url, item);
+            }
+        });
 
-        console.log("🌍 URLs fetched:", allUrls.length);
+        allItems = Array.from(uniqueMap.values());
+
+        console.log("🌍 Images fetched:", allItems.length);
 
         let results = [];
 
-        // ✅ Step 4: Compare images
-        for (let i = 0; i < Math.min(allUrls.length, 10); i++) {
-            const url = allUrls[i];
+        // ✅ Compare
+        for (let i = 0; i < Math.min(allItems.length, 10); i++) {
+            const item = allItems[i];
+            const url = item.url;
+
             const filePath = path.join(uploadDir, `ext_${Date.now()}_${i}.jpg`);
 
             try {
-                console.log("⬇️ Downloading:", url);
-
                 await downloadImage(url, filePath);
                 tempFiles.push(filePath);
 
                 const emb = await getEmbedding(filePath);
+                const similarity = cosineSimilarity(inputEmbedding, emb);
 
-                let similarity = cosineSimilarity(inputEmbedding, emb);
                 let percentage = similarity * 100;
 
-                // 🔥 SMART BOOST (ENTITY MATCH)
+                // 🔥 Entity boost
                 if (entity !== "unknown" && url.toLowerCase().includes(entity)) {
-                    console.log("⚡ Entity match boost applied");
                     percentage += 10;
                 }
 
-                // cap at 100
                 if (percentage > 100) percentage = 100;
-
-                console.log("📊 Similarity:", percentage.toFixed(2));
 
                 results.push({
                     url,
                     similarity: Number(percentage.toFixed(2)),
-                    piracy: getPiracyLevel(percentage)
+                    piracy: getPiracyLevel(percentage),
+                    source: item.source,
+                    title: item.title,
+                    page: item.link
                 });
 
-                await sleep(300);
+                await sleep(200);
 
             } catch (err) {
                 console.log("❌ Skipping:", url);
             }
         }
 
-        // ✅ Step 5: Sort
+        // ✅ Sort
         results.sort((a, b) => b.similarity - a.similarity);
 
-        // ✅ Step 6: Filter
+        // ✅ Filter
         let filtered = results.filter(r => r.similarity > 30);
 
-        if (filtered.length === 0) {
-            console.log("⚠️ No strong matches, returning best guesses");
+        if (!filtered.length) {
             filtered = results.slice(0, 3);
+        }
+
+        // 🔥 FINAL VERDICT
+        let verdict = "✅ CLEAN: No matching content found";
+
+        if (filtered.some(r => r.similarity > 85)) {
+            verdict = "🚨 HIGH RISK: Strong pirated matches found";
+        } else if (filtered.some(r => r.similarity > 70)) {
+            verdict = "⚠️ MEDIUM RISK: Potential reused content detected";
+        } else if (filtered.length > 0) {
+            verdict = "🟢 LOW RISK: Minor similarity detected";
         }
 
         res.json({
             message: "External search completed",
-            detected_entity: entity, // 🔥 NEW
+            detected_entity: entity,
             queries_used: queries,
-            matches: filtered.slice(0, 5)
+            matches: filtered.slice(0, 5),
+            verdict
         });
 
     } catch (err) {
-        console.error("❌ External search error:", err);
+        console.error("❌ Error:", err);
         res.status(500).json({ error: "External search failed" });
     } finally {
-        // 🧹 CLEANUP
-        try {
-            tempFiles.forEach(file => {
-                if (fs.existsSync(file)) fs.unlinkSync(file);
-            });
-        } catch (e) {
-            console.log("⚠️ Cleanup failed");
-        }
+        tempFiles.forEach(file => {
+            if (fs.existsSync(file)) fs.unlinkSync(file);
+        });
     }
 });
 

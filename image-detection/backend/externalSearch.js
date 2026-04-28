@@ -3,21 +3,26 @@ const fs = require('fs');
 
 const API_KEY = process.env.SERP_API_KEY;
 
-// 🔍 Fetch image URLs
+// 🔍 Fetch image data (UPDATED)
 async function fetchImageUrls(query) {
     try {
         const url = `https://serpapi.com/search.json?q=${encodeURIComponent(query)}&tbm=isch&api_key=${API_KEY}`;
 
         const response = await axios.get(url, {
-            timeout: 10000 // 🔥 prevent hanging
+            timeout: 10000
         });
 
         const images = response.data.images_results || [];
 
         return images
             .slice(0, 5)
-            .map(img => img.original)
-            .filter(Boolean); // remove nulls
+            .map(img => ({
+                url: img.original,
+                source: img.source || "Unknown",
+                title: img.title || "",
+                link: img.link || ""
+            }))
+            .filter(img => img.url);
 
     } catch (err) {
         console.log("❌ Error fetching images for:", query);
@@ -34,7 +39,7 @@ async function downloadImage(url, filename) {
             url,
             method: 'GET',
             responseType: 'stream',
-            timeout: 10000, // 🔥 VERY IMPORTANT
+            timeout: 10000,
             maxContentLength: Infinity,
             maxBodyLength: Infinity
         });

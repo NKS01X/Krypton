@@ -24,14 +24,24 @@ key-image value- one image file of 512 dimension
 
 
 🚀 How to Run
-1. Install dependencies
-npm install
-2. Set environment variables
+## 1. Install dependencies
+# Image backend Model dependencies
+- pip install torch torchvision torchaudio
+- pip install git+https://github.com/openai/CLIP.git
+
+# Image backend Node dependencies
+- npm install
+
+## 2. Set environment variables
 GEMINI_API_KEY=your_key
 SERP_API_KEY=your_key
-3. Start server
+
+## 3. Start server
 node backend/server.js
+
+// Notify us if this the below command raises any error
 python ml-service/app.py
+
 Server runs at:
 http://localhost:5000/external-search
 
