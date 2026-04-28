@@ -1,0 +1,15 @@
+{
+  "dependencies": {
+    "@tensorflow-models/mobilenet": "^2.1.1",
+    "@tensorflow/tfjs": "^4.22.0",
+    "axios": "^1.15.0",
+    "cors": "^2.8.6",
+    "dotenv": "^17.4.2",
+    "express": "^5.2.1",
+    "form-data": "^4.0.5",
+    "fs": "^0.0.1-security",
+    "jpeg-js": "^0.4.4",
+    "multer": "^2.1.1",
+    "path": "^0.12.7"
+  }
+}
