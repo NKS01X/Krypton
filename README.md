@@ -106,6 +106,9 @@ vid-piracy-backend/
 
 ### Run with Docker Compose (recommended)
 
+# ------------ ⚠️⚠️Alert   ---------------
+## We are using .dockerignore to safely run only the .go files, edit the file if you add any extra file to the root repository
+
 ```bash
 # Start everything: Postgres, RabbitMQ, API, 2 Workers
 docker-compose up --build

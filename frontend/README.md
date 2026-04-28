@@ -161,8 +161,7 @@ GET /api/v1/scan/:id
 
 ---
 
-## Getting Started
-
+## ------------Getting Started-------------------
 ### Install dependencies
 npm install
 
