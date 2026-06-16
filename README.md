@@ -29,14 +29,15 @@
 
 ## What is this?
 
-Krypton is a full-stack video copyright detection system. You give it a video (URL or file upload), and it tells you whether that video matches anything in your protected content database.
+Krypton is a full-stack video copyright detection system. You give it a video (URL or file upload), and it tells you whether that video matches anything in your protected content database, or if it has been leaked on the public internet.
 
-It does this through two independent detection methods running in parallel:
+It accomplishes this through a multi-layered detection architecture:
 
 - **Perceptual Hashing (pHash)** — Structural visual fingerprinting. Catches near-exact copies even after re-encoding, watermark overlays, or resolution changes.
 - **Vector Embeddings (Jina CLIP v2)** — 1024-dimensional deep neural embeddings via pgvector. Catches semantic copies — flipped, cropped, color-graded, or speed-altered videos.
+- **External Web Reconnaissance** — A dedicated multimodal microservice (Python/Node.js) that generates local embeddings via OpenAI CLIP and reverse-searches frames across the public web using external intelligence (SerpApi/Gemini) to identify unauthorized distribution.
 
-Both signals are combined into a single confidence score.
+These signals are aggregated to provide a comprehensive piracy confidence score.
 
 ---
 
