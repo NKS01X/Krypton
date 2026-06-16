@@ -2,19 +2,26 @@
   <img src="docs/screenshots/landing.png" alt="Krypton Landing Page" width="800" />
 </p>
 
-<h1 align="center">Krypton</h1>
-<p align="center">
-  <b>AI-powered video copyright detection that actually works.</b><br/>
-  Perceptual hashing + deep neural embeddings to catch pirated content across the internet — in seconds.
-</p>
+# Krypton
+
+## AI-powered video copyright detection that actually works.
+### Perceptual hashing + deep neural embeddings to catch pirated content across the internet — in seconds.
 
 <p align="center">
   <img src="https://img.shields.io/badge/Go-1.22-00ADD8?style=flat-square&logo=go" />
+  <img src="https://img.shields.io/badge/JavaScript-F7DF1E?style=flat-square&logo=javascript&logoColor=black" />
   <img src="https://img.shields.io/badge/React-18-61DAFB?style=flat-square&logo=react" />
+  <img src="https://img.shields.io/badge/Vite-B73BFE?style=flat-square&logo=vite&logoColor=FFD62E" />
+  <img src="https://img.shields.io/badge/Framer_Motion-black?style=flat-square&logo=framer&logoColor=blue" />
   <img src="https://img.shields.io/badge/PostgreSQL-16-4169E1?style=flat-square&logo=postgresql&logoColor=white" />
   <img src="https://img.shields.io/badge/pgvector-0.7-4169E1?style=flat-square" />
   <img src="https://img.shields.io/badge/RabbitMQ-3-FF6600?style=flat-square&logo=rabbitmq&logoColor=white" />
-  <img src="https://img.shields.io/badge/Docker-Compose-2496ED?style=flat-square&logo=docker&logoColor=white" />
+  <img src="https://img.shields.io/badge/FFmpeg-007808?style=flat-square&logo=ffmpeg&logoColor=white" />
+  <img src="https://img.shields.io/badge/Docker-2496ED?style=flat-square&logo=docker&logoColor=white" />
+  <img src="https://img.shields.io/badge/Nginx-009639?style=flat-square&logo=nginx&logoColor=white" />
+  <img src="https://img.shields.io/badge/Cloudflare-F38020?style=flat-square&logo=cloudflare&logoColor=white" />
+  <img src="https://img.shields.io/badge/Terraform-5835CC?style=flat-square&logo=terraform&logoColor=white" />
+  <img src="https://img.shields.io/badge/Oracle_Cloud-F80000?style=flat-square&logo=oracle&logoColor=white" />
   <img src="https://img.shields.io/badge/License-MIT-green?style=flat-square" />
 </p>
 
@@ -108,6 +115,7 @@ graph TD
     classDef queue fill:#f97316,stroke:#c2410c,stroke-width:2px,color:#fff
     classDef db fill:#3b82f6,stroke:#1d4ed8,stroke-width:2px,color:#fff
     classDef external fill:#64748b,stroke:#334155,stroke-width:2px,color:#fff
+    classDef micro fill:#ec4899,stroke:#be185d,stroke-width:2px,color:#fff
 
     Client("Client Browser"):::client
     CF("Cloudflare Edge<br/>(WAF, DDoS, HTTPS)"):::edge
@@ -122,9 +130,15 @@ graph TD
         Worker("Background Workers<br/>(Go Routines)"):::backend
         
         DB[("PostgreSQL 16<br/>+ pgvector")]:::db
+
+        subgraph Microservice["Image Detection Microservice"]
+            NodeAPI("Node.js Proxy<br/>(:5000)"):::micro
+            PyML("Python CLIP API<br/>(:8000)"):::micro
+        end
     end
 
     Jina("Jina AI API<br/>(Multimodal Embeddings)"):::external
+    Serp("SerpApi / Gemini<br/>(External Search)"):::external
 
     Client -->|HTTPS| CF
     CF -->|Zero Trust Tunnel| Tunnel
@@ -139,6 +153,10 @@ graph TD
     MQ -->|Consume Task| Worker
     Worker -->|Fetch Vectors| Jina
     Worker -->|Query Similarity| DB
+
+    Nginx -->|Route Image Search| NodeAPI
+    NodeAPI -->|Fetch CLIP Vectors| PyML
+    NodeAPI -->|Fetch Web Matches| Serp
 ```
 
 No ports exposed to the public internet. All traffic flows through Cloudflare Tunnels.
@@ -147,17 +165,41 @@ No ports exposed to the public internet. All traffic flows through Cloudflare Tu
 
 ## Tech stack
 
-| Layer | Tech | Why |
-|-------|------|-----|
-| Backend | Go 1.22, Fiber | Fast, compiled, great concurrency primitives |
-| Frontend | React 18, Vite, Framer Motion | Responsive SPA with smooth animations |
-| Database | PostgreSQL 16 + pgvector | Relational + vector similarity in one engine |
-| Queue | RabbitMQ 3 | Reliable async job dispatch with manual ACK |
-| Video | FFmpeg, yt-dlp | Keyframe extraction + URL video downloading |
-| Embeddings | Jina AI (jina-clip-v2) | 1024-dim multimodal vectors |
-| Proxy | Nginx | Static assets + transparent API reverse proxy |
-| Security | Cloudflare Tunnels, JWT | Zero-trust networking + token auth |
-| Infra | Docker Compose, Terraform | One-command deployment to Oracle Cloud |
+### 🎨 Frontend
+- **React 18** — Component-based UI rendering
+- **Vite** — High-performance build tool and dev server
+- **Framer Motion** — Fluid, declarative UI animations
+- **Recharts** — Dynamic svg-based data visualization
+- **Vanilla CSS** — Custom Clarity-inspired design system with CSS variables
+
+### ⚙️ Backend Core
+- **Go (Golang) 1.22** — High-concurrency compiled backend language
+- **Fiber v2** — Extremely fast, Express-inspired web framework for Go
+- **Viper** — Environment configuration management
+- **Zerolog** — Zero-allocation JSON logging
+
+### 🧠 Data & AI Layer
+- **PostgreSQL 16** — Primary relational database
+- **pgvector** — Vector similarity search extension for PostgreSQL
+- **Jina AI (CLIP v2)** — Deep multimodal embeddings API for semantic video matching
+- **RabbitMQ 3** — Message broker for reliable asynchronous job dispatching
+
+### 🎬 Video Processing Engine
+- **FFmpeg** — Industry-standard video keyframe extraction (at 1 fps)
+- **yt-dlp** — Open-source video downloader for extracting streams from URLs
+- **Custom pHash** — Perceptual image hashing algorithm for structural similarity
+
+### 🔐 Security
+- **Cloudflare Tunnels** — Zero-Trust edge proxy, eliminating open inbound ports
+- **JSON Web Tokens (JWT)** — Short-lived, stateless in-memory access tokens
+- **httpOnly Cookies** — Secure, encrypted storage for long-lived refresh tokens
+- **Bcrypt** — Cryptographic password hashing
+
+### 🏗️ Infrastructure & Deployment
+- **Docker & Docker Compose** — Containerization and multi-service orchestration
+- **Nginx** — Internal reverse proxy routing and static asset serving
+- **Terraform** — Infrastructure-as-Code (IaC) for cloud provisioning
+- **Oracle Cloud (OCI)** — ARM A1 Flex production environment (Always Free Tier)
 
 ---
 
@@ -255,6 +297,49 @@ All endpoints are under `/api/v1`. Auth routes are public; scanner routes requir
 | GET | `/api/v1/scan/:id` | Poll scan results |
 | POST | `/api/v1/protected` | Register a video to protect |
 | POST | `/api/v1/protected/upload` | Upload a protected video file |
+
+### Image Detection Microservice
+An independent Python/Node.js microservice architecture dedicated specifically to deep image analysis and external piracy web searches.
+
+#### Architecture
+The `image-detection` module splits workloads across two specialized environments:
+- **Python ML Service (`ml-service/app.py`)**: A high-performance Flask API running on port `8000`. It utilizes the official OpenAI CLIP model (`ViT-B/32`) via PyTorch to generate high-dimensional image embeddings for structural similarity matching.
+- **Node.js Search Proxy (`backend/server.js`)**: An Express.js coordinator running on port `5000`. It receives client requests, triggers the Python ML service for vectorization, and interfaces with external APIs (Google Gemini, SerpApi) to perform real-time cross-referencing for copyrighted image leaks on the public web.
+
+#### Endpoints
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| POST | `http://localhost:5000/external-search` | Takes a 512px image (`form-data` with `image` key). Identifies the entity and cross-references external web results for piracy risks. |
+| POST | `http://localhost:8000/embed` | Python ML endpoint returning raw OpenAI CLIP embeddings for a 512px image. |
+
+#### Running the Microservice
+**1. Install ML Dependencies (Python):**
+```bash
+pip install torch torchvision torchaudio
+pip install git+https://github.com/openai/CLIP.git
+```
+
+**2. Install Backend Dependencies (Node):**
+```bash
+cd image-detection
+npm install
+```
+
+**3. Configure Environment Variables:**
+```env
+GEMINI_API_KEY=your_key
+SERP_API_KEY=your_key
+```
+
+**4. Start Services:**
+Start the Python ML model API:
+```bash
+python ml-service/app.py
+```
+Start the Node.js search proxy (CORS enabled for all regions):
+```bash
+node backend/server.js
+```
 
 ---
 
