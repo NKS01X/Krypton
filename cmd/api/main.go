@@ -6,6 +6,7 @@ import (
 	"os"
 	"os/signal"
 	"syscall"
+	"time"
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/fiber/v2/middleware/cors"
@@ -15,6 +16,7 @@ import (
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
 
+	"github.com/nikhil/vid-piracy-backend/internal/auth"
 	"github.com/nikhil/vid-piracy-backend/internal/config"
 	"github.com/nikhil/vid-piracy-backend/internal/engine"
 	"github.com/nikhil/vid-piracy-backend/internal/handler"
@@ -53,6 +55,15 @@ func main() {
 
 	videoRepo := repository.NewVideoRepo(pool)
 	vectorRepo := repository.NewVectorRepo(pool)
+	userRepo := repository.NewUserRepo(pool)
+
+	// Auth service — reads JWT_SECRET from env (fallback to a dev default)
+	jwtSecret := os.Getenv("JWT_SECRET")
+	if jwtSecret == "" {
+		jwtSecret = "change-me-in-production-use-32-plus-bytes"
+		log.Warn().Msg("JWT_SECRET not set — using insecure default (do NOT use in production)")
+	}
+	authSvc := auth.NewService(jwtSecret, 15*time.Minute, 7*24*time.Hour)
 
 	eng := engine.NewSimilarityEngine(cfg, videoRepo, vectorRepo)
 
@@ -72,8 +83,11 @@ func main() {
 	app.Use(logger.New())
 	app.Use(cors.New())
 
-	h := handler.NewHandler(eng, pub, videoRepo)
+	h := handler.NewHandler(eng, pub, videoRepo, authSvc)
 	h.RegisterRoutes(app)
+
+	authH := handler.NewAuthHandler(authSvc, userRepo)
+	authH.RegisterAuthRoutes(app)
 
 	go func() {
 		sigCh := make(chan os.Signal, 1)

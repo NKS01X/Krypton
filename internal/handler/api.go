@@ -9,6 +9,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/rs/zerolog/log"
 
+	"github.com/nikhil/vid-piracy-backend/internal/auth"
 	"github.com/nikhil/vid-piracy-backend/internal/engine"
 	"github.com/nikhil/vid-piracy-backend/internal/models"
 	"github.com/nikhil/vid-piracy-backend/internal/queue"
@@ -19,29 +20,31 @@ type Handler struct {
 	engine    *engine.SimilarityEngine
 	publisher *queue.Publisher
 	videoRepo *repository.VideoRepo
+	authSvc   *auth.Service
 }
 
-func NewHandler(eng *engine.SimilarityEngine, pub *queue.Publisher, vr *repository.VideoRepo) *Handler {
+func NewHandler(eng *engine.SimilarityEngine, pub *queue.Publisher, vr *repository.VideoRepo, authSvc *auth.Service) *Handler {
 	return &Handler{
 		engine:    eng,
 		publisher: pub,
 		videoRepo: vr,
+		authSvc:   authSvc,
 	}
 }
 
 func (h *Handler) RegisterRoutes(app *fiber.App) {
 	api := app.Group("/api/v1")
 
-	api.Post("/scan", h.SubmitScan)
-	api.Get("/scan/:id", h.GetScanResult)
-	api.Post("/protected", h.RegisterProtected)
+	// Public
 	api.Get("/health", h.HealthCheck)
 
-	// New Post Endpoint to Uploada video
-	api.Post("/scan/upload", h.SubmitScanUpload)
-
-	// New Post Endpoint to upload Video
-	api.Post("/protected/upload", h.RegisterProtectedUpload)
+	// Protected — require valid JWT
+	protected := api.Group("/", auth.Middleware(h.authSvc))
+	protected.Post("/scan", h.SubmitScan)
+	protected.Get("/scan/:id", h.GetScanResult)
+	protected.Post("/scan/upload", h.SubmitScanUpload)
+	protected.Post("/protected", h.RegisterProtected)
+	protected.Post("/protected/upload", h.RegisterProtectedUpload)
 }
 
 func (h *Handler) RegisterProtectedUpload(c *fiber.Ctx) error {
