@@ -49,23 +49,41 @@ Both signals are combined into a single confidence score.
 
 ## How it works
 
-```
-You upload a video
-        ↓
-  Keyframes extracted (FFmpeg @ 1fps)
-        ↓
-  ┌─────────────────┬─────────────────┐
-  │   pHash (64-bit) │  Jina CLIP v2   │
-  │   Hamming dist.  │  Cosine sim.    │
-  └────────┬────────┴────────┬────────┘
-           ↓                 ↓
-      PostgreSQL          pgvector
-      bit_count()         <=> operator
-           ↓                 ↓
-           └──── Combined ────┘
-                    ↓
-            Confidence Score
-          (LOW / MEDIUM / HIGH)
+```mermaid
+sequenceDiagram
+    participant User
+    participant API as Fiber API (Go)
+    participant MQ as RabbitMQ
+    participant Worker as Task Worker (Go)
+    participant Extract as FFmpeg / yt-dlp
+    participant Model as Jina CLIP v2
+    participant DB as PostgreSQL + pgvector
+
+    User->>API: POST /api/v1/scan (URL or File)
+    API->>MQ: Publish Scan Task
+    API-->>User: Return job_id
+    
+    MQ-->>Worker: Consume Task
+    Worker->>Extract: Download & Extract Keyframes (1fps)
+    Extract-->>Worker: Return Frame Images
+    
+    par Dual-Pipeline Processing
+        Worker->>Worker: Compute pHash (64-bit perceptual hash)
+        Worker->>Model: Request Embeddings
+        Model-->>Worker: Return 1024-dim Vectors
+    end
+
+    Worker->>DB: Query pHash (bit_count Hamming dist)
+    DB-->>Worker: pHash Match Scores
+    Worker->>DB: Query Vectors (<=> Cosine sim)
+    DB-->>Worker: Vector Match Scores
+
+    Worker->>DB: Update scan_results (Confidence Score)
+    
+    User->>API: GET /api/v1/scan/:job_id (Polling)
+    API->>DB: Fetch Status
+    DB-->>API: Status (Done + Results)
+    API-->>User: Analysis Report
 ```
 
 1. Video lands on the API (URL or direct upload up to 2GB)
@@ -79,26 +97,48 @@ You upload a video
 
 ## Architecture
 
-```
-Internet
-    ↓
-Cloudflare Edge (WAF · DDoS · Rate Limiting · HTTPS)
-    ↓ (Secure Tunnel)
-┌─────────────────────────────────────────────┐
-│              Docker Network                  │
-│                                              │
-│  cloudflared ──→ Nginx ──→ React SPA         │
-│                    │                         │
-│                    ├──→ Go API (:8080)        │
-│                    │       ├──→ PostgreSQL    │
-│                    │       │     + pgvector   │
-│                    │       └──→ RabbitMQ      │
-│                    │              ↓           │
-│                    │           Worker(s)      │
-│                    │           (yt-dlp,       │
-│                    │            FFmpeg,       │
-│                    │            Jina AI)      │
-└─────────────────────────────────────────────┘
+```mermaid
+graph TD
+    %% Define Styles
+    classDef client fill:#3b82f6,stroke:#1d4ed8,stroke-width:2px,color:#fff
+    classDef edge fill:#f59e0b,stroke:#b45309,stroke-width:2px,color:#fff
+    classDef network fill:#1e293b,stroke:#475569,stroke-width:2px,color:#fff,stroke-dasharray: 5 5
+    classDef proxy fill:#10b981,stroke:#047857,stroke-width:2px,color:#fff
+    classDef backend fill:#8b5cf6,stroke:#6d28d9,stroke-width:2px,color:#fff
+    classDef queue fill:#f97316,stroke:#c2410c,stroke-width:2px,color:#fff
+    classDef db fill:#3b82f6,stroke:#1d4ed8,stroke-width:2px,color:#fff
+    classDef external fill:#64748b,stroke:#334155,stroke-width:2px,color:#fff
+
+    Client("Client Browser"):::client
+    CF("Cloudflare Edge<br/>(WAF, DDoS, HTTPS)"):::edge
+    
+    subgraph OCI["Oracle Cloud VM (Isolated Docker Network)"]
+        Tunnel("cloudflared<br/>(Outbound Secure Tunnel)"):::proxy
+        Nginx("Nginx<br/>(Reverse Proxy & Static Assets)"):::proxy
+        SPA("React SPA<br/>(Vite)"):::client
+        
+        API("Fiber API<br/>(Go Gateway)"):::backend
+        MQ("RabbitMQ<br/>(Message Queue)"):::queue
+        Worker("Background Workers<br/>(Go Routines)"):::backend
+        
+        DB[("PostgreSQL 16<br/>+ pgvector")]:::db
+    end
+
+    Jina("Jina AI API<br/>(Multimodal Embeddings)"):::external
+
+    Client -->|HTTPS| CF
+    CF -->|Zero Trust Tunnel| Tunnel
+    Tunnel -->|HTTP| Nginx
+    
+    Nginx -->|Route /| SPA
+    Nginx -->|Route /api/*| API
+    
+    API -->|Publish Task| MQ
+    API -->|Read/Write Session| DB
+    
+    MQ -->|Consume Task| Worker
+    Worker -->|Fetch Vectors| Jina
+    Worker -->|Query Similarity| DB
 ```
 
 No ports exposed to the public internet. All traffic flows through Cloudflare Tunnels.
@@ -276,14 +316,62 @@ terraform init && terraform apply
 
 ## Database schema
 
-| Table | Purpose |
-|-------|---------|
-| `users` | Account credentials (bcrypt hashed) |
-| `refresh_tokens` | Server-side token revocation |
-| `protected_videos` | Registered content to protect |
-| `frame_phashes` | 64-bit perceptual hashes per keyframe |
-| `frame_embeddings` | 1024-dim vector embeddings per keyframe |
-| `scan_results` | Scan history with match scores |
+```mermaid
+erDiagram
+    USERS ||--o{ REFRESH_TOKENS : "has"
+    PROTECTED_VIDEOS ||--o{ FRAME_PHASHES : "contains"
+    PROTECTED_VIDEOS ||--o{ FRAME_EMBEDDINGS : "contains"
+    PROTECTED_VIDEOS ||--o{ SCAN_RESULTS : "matches"
+
+    USERS {
+        uuid id PK
+        varchar username UK
+        varchar email UK
+        varchar password_hash
+        timestamp created_at
+    }
+
+    REFRESH_TOKENS {
+        uuid id PK
+        uuid user_id FK
+        varchar token_hash UK
+        timestamp expires_at
+        boolean revoked
+    }
+
+    PROTECTED_VIDEOS {
+        uuid id PK
+        varchar title
+        text description
+        text source_url
+        varchar status "pending, processing, done"
+        timestamp created_at
+    }
+
+    FRAME_PHASHES {
+        uuid id PK
+        uuid video_id FK
+        int frame_index
+        float timestamp_sec
+        bigint phash_value
+    }
+
+    FRAME_EMBEDDINGS {
+        uuid id PK
+        uuid video_id FK
+        int frame_index
+        vector embedding "1024-dim array"
+    }
+
+    SCAN_RESULTS {
+        uuid id PK
+        text scanned_url
+        boolean is_copyright_flag
+        float max_phash_score
+        float max_vector_score
+        uuid matched_video_id FK
+    }
+```
 
 ---
 
