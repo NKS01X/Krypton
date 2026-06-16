@@ -39,12 +39,12 @@ func (h *Handler) RegisterRoutes(app *fiber.App) {
 	api.Get("/health", h.HealthCheck)
 
 	// Protected — require valid JWT
-	protected := api.Group("/", auth.Middleware(h.authSvc))
-	protected.Post("/scan", h.SubmitScan)
-	protected.Get("/scan/:id", h.GetScanResult)
-	protected.Post("/scan/upload", h.SubmitScanUpload)
-	protected.Post("/protected", h.RegisterProtected)
-	protected.Post("/protected/upload", h.RegisterProtectedUpload)
+	jwtAuth := auth.Middleware(h.authSvc)
+	api.Post("/scan", jwtAuth, h.SubmitScan)
+	api.Get("/scan/:id", jwtAuth, h.GetScanResult)
+	api.Post("/scan/upload", jwtAuth, h.SubmitScanUpload)
+	api.Post("/protected", jwtAuth, h.RegisterProtected)
+	api.Post("/protected/upload", jwtAuth, h.RegisterProtectedUpload)
 }
 
 func (h *Handler) RegisterProtectedUpload(c *fiber.Ctx) error {
@@ -100,7 +100,7 @@ func (h *Handler) RegisterProtectedUpload(c *fiber.Ctx) error {
 	})
 }
 
-// this function handles direct video uploads 
+// this function handles direct video uploads
 func (h *Handler) SubmitScanUpload(c *fiber.Ctx) error {
 	file, err := c.FormFile("file")
 	if err != nil {
@@ -108,11 +108,11 @@ func (h *Handler) SubmitScanUpload(c *fiber.Ctx) error {
 			"error": "video file required",
 		})
 	}
-	
+
 	// Checks video type : Saves from unwanted .zip  .exes files
 	if !strings.HasPrefix(file.Header.Get("Content-Type"), "video/") {
-	return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-		"error": "only video files allowed",
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error": "only video files allowed",
 		})
 	}
 

@@ -46,8 +46,18 @@ export function AuthProvider({ children }) {
         credentials: "include",
         body: JSON.stringify({ email, password }),
       });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "Login failed");
+
+      const text = await res.text();
+      let data = {};
+      if (text) {
+        try {
+          data = JSON.parse(text);
+        } catch {
+          throw new Error(`Server returned invalid response (Status ${res.status})`);
+        }
+      }
+
+      if (!res.ok) throw new Error(data.error || `Login failed (Status ${res.status})`);
       setToken(data.access_token);
       setUser(data.user);
       scheduleRefresh();
@@ -68,8 +78,18 @@ export function AuthProvider({ children }) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ username, email, password }),
       });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "Registration failed");
+
+      const text = await res.text();
+      let data = {};
+      if (text) {
+        try {
+          data = JSON.parse(text);
+        } catch {
+          throw new Error(`Server returned invalid response (Status ${res.status})`);
+        }
+      }
+
+      if (!res.ok) throw new Error(data.error || `Registration failed (Status ${res.status})`);
       return { ok: true };
     } catch (err) {
       return { ok: false, error: err.message };
