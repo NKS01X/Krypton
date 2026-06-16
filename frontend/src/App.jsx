@@ -205,22 +205,11 @@ function ProcessingPhase({ onComplete, inputData }) {
   const [step, setStep] = useState(0);
   const [msgKey, setMsgKey] = useState(0);
 
+  // Refs so cleanup always has access to the latest interval IDs
+  const progressIntervalRef = useRef(null);
+  const pollIntervalRef = useRef(null);
+
   useEffect(() => {
-    let interval;
-
-    const startFakeProgress = () => {
-      interval = setInterval(() => {
-        setProgress((p) => (p < 95 ? p + 3 : p));
-
-        const si = Math.min(STEPS.length - 1, Math.floor((progress / 100) * STEPS.length));
-        setStep(prev => {
-          if (si !== prev) setMsgKey(k => k + 1);
-          return si;
-        });
-
-      }, 200);
-    };
-
     const uploadAndPoll = async () => {
       try {
         console.log("🔥 INPUT DATA:", inputData);
@@ -259,13 +248,21 @@ function ProcessingPhase({ onComplete, inputData }) {
 
         console.log("🚀 Job ID:", jobId);
 
-        // 🔹 STEP 2: START PROGRESS
-        const progressInterval = setInterval(() => {
-          setProgress((p) => (p < 95 ? p + 5 : p));
+        // 🔹 STEP 2: START PROGRESS — stored in ref so cleanup can reach it
+        progressIntervalRef.current = setInterval(() => {
+          setProgress((p) => {
+            const next = p < 95 ? p + 5 : p;
+            const si = Math.min(STEPS.length - 1, Math.floor((next / 100) * STEPS.length));
+            setStep(prev => {
+              if (si !== prev) setMsgKey(k => k + 1);
+              return si;
+            });
+            return next;
+          });
         }, 300);
 
-        // 🔹 STEP 3: POLLING
-        const pollInterval = setInterval(async () => {
+        // 🔹 STEP 3: POLLING — stored in ref so cleanup can reach it
+        pollIntervalRef.current = setInterval(async () => {
           try {
             const res = await fetch(`http://localhost:8080/api/v1/scan/${jobId}`);
             const data = await res.json();
@@ -273,12 +270,11 @@ function ProcessingPhase({ onComplete, inputData }) {
             console.log("📊 Poll:", data);
 
             if (data.status === "done" || data.status === "completed") {
-              clearInterval(pollInterval);
-              clearInterval(progressInterval);
+              clearInterval(pollIntervalRef.current);
+              clearInterval(progressIntervalRef.current);
 
               setProgress(100);
 
-              // 🔥 FORMAT RESPONSE (MATCH YOUR BACKEND)
               const formatted = {
                 job_id: data.job_id,
                 status: data.status,
@@ -302,8 +298,14 @@ function ProcessingPhase({ onComplete, inputData }) {
         console.error("❌ Upload error:", err);
       }
     };
+
     uploadAndPoll();
-    return () => clearInterval(interval);
+
+    // ✅ Cleanup: always clear both intervals on unmount or re-run
+    return () => {
+      clearInterval(progressIntervalRef.current);
+      clearInterval(pollIntervalRef.current);
+    };
   }, [inputData, onComplete]);
 
   const r = 68, circ = 2 * Math.PI * r;
@@ -382,14 +384,14 @@ function ResultsPhase({ data, onNewScan }) {
 
         {/* ── LEFT COLUMN: MAIN RISK ANALYSIS ── */}
         <motion.div className="card card-hover" style={{ gridColumn: "span 4", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: "40px 24px", position: "relative", overflow: "hidden", minWidth: 0 }} {...cardEntry(1)}>
-          <div style={{ position: "absolute", top: "-50px", left: "-50px", width: "150px", height: "150px", background: si.color, filter: "blur(100px)", opacity: 0.15 }} />
+
 
           <h2 style={{ fontSize: "14px", fontWeight: "700", color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.1em", marginBottom: "30px", alignSelf: "flex-start" }}>Risk Analysis</h2>
 
           <div className="score-ring-wrapper" style={{ marginBottom: "24px" }}>
             <svg viewBox="0 0 210 210" style={{ width: "180px", height: "180px" }}>
               <circle className="score-ring-bg" cx="105" cy="105" r={r} />
-              <motion.circle className="score-ring-fill score-ring-glow" cx="105" cy="105" r={r}
+                <motion.circle className="score-ring-fill score-ring-glow" cx="105" cy="105" r={r}
                 stroke={si.color} strokeDasharray={circ}
                 initial={{ strokeDashoffset: circ }}
                 animate={{ strokeDashoffset: circ - (circ * confidence) / 100 }}
@@ -489,7 +491,7 @@ function ResultsPhase({ data, onNewScan }) {
 
 /* ═══ App ═══ */
 export default function App() {
-  const [mode, setMode] = useState("video"); // 🔥 NEW
+  const [mode, setMode] = useState("video");
 
   const [phase, setPhase] = useState("input");
   const [results, setResults] = useState(null);

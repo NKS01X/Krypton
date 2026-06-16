@@ -195,7 +195,7 @@ export default function ImagePage() {
           style={{ gridColumn: "span 4", display: "flex", flexDirection: "column", alignItems: "center", padding: "32px 24px", position: "relative", overflow: "hidden", minWidth: 0 }}
           initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} transition={{ duration: 0.5, delay: 0.1 }}
         >
-          {isDashboardActive && <div style={{ position: "absolute", top: "-50px", left: "-50px", width: "150px", height: "150px", background: riskInfo.color, filter: "blur(100px)", opacity: 0.15 }} />}
+
 
           <h2 style={{ fontSize: "14px", fontWeight: "700", color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.1em", marginBottom: "32px", alignSelf: "flex-start" }}>Risk Analysis</h2>
 
@@ -207,7 +207,6 @@ export default function ImagePage() {
                 strokeDasharray="565.48" strokeDashoffset="565.48"
                 animate={{ strokeDashoffset: results ? 565.48 - (565.48 * results.score) / 100 : 565.48 }}
                 transition={{ duration: 1.5, ease: "easeOut" }}
-                style={{ filter: `drop-shadow(0 0 8px ${riskInfo.color}40)` }}
               />
             </svg>
             <div style={{ textAlign: "center" }}>
