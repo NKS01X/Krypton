@@ -25,6 +25,8 @@ go.work
 *.env
 *.env.*
 *.env.local
+!.env.prod.example
+!deploy/.env.prod.example
 
 # local files
 implementation_plan.md
@@ -36,3 +38,11 @@ task.md
 .agents/
 
 graphify-out/
+
+# Terraform
+deploy/terraform/.terraform/
+deploy/terraform/*.tfstate
+deploy/terraform/*.tfstate.backup
+deploy/terraform/terraform.tfvars
+deploy/terraform/.terraform.lock.hcl
+deploy/terraform/crash.log

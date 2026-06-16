@@ -1,0 +1,23 @@
+# ── OCI Credentials ──────────────────────────────────────────────────────────
+# Find these in OCI Console → Profile → API Keys
+tenancy_ocid     = "ocid1.tenancy.oc1..aaaaaaaaXXXXXXXXXXXXXXXXXXXXXXXXXXX"
+user_ocid        = "ocid1.user.oc1..aaaaaaaaXXXXXXXXXXXXXXXXXXXXXXXXXXX"
+fingerprint      = "aa:bb:cc:dd:ee:ff:00:11:22:33:44:55:66:77:88:99"
+private_key_path = "~/.oci/oci_api_key.pem"
+
+# Use your tenancy OCID if you want root compartment
+compartment_ocid = "ocid1.tenancy.oc1..aaaaaaaaXXXXXXXXXXXXXXXXXXXXXXXXXXX"
+
+# ── Region ───────────────────────────────────────────────────────────────────
+region = "ap-mumbai-1"
+
+# ── SSH Key ──────────────────────────────────────────────────────────────────
+# Paste your public key here (cat ~/.ssh/id_rsa.pub)
+ssh_public_key = "ssh-rsa AAAA..."
+
+# Restrict SSH to your IP for security (find your IP: curl ifconfig.me)
+ssh_allowed_cidr = "0.0.0.0/0"
+
+# ── App ──────────────────────────────────────────────────────────────────────
+domain       = "nikhil-krypton.duckdns.org"
+duckdns_token = "your-duckdns-token-here"
