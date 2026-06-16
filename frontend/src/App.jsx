@@ -5,6 +5,7 @@ import {
   ResponsiveContainer, BarChart, Bar, Cell,
 } from "recharts";
 import ImagePage from "./ImagePage";
+import { useAuth } from "./AuthContext";
 
 /* ── Helpers ── */
 const rand = (a, b) => Math.floor(Math.random() * (b - a + 1)) + a;
@@ -68,6 +69,7 @@ const cardEntry = (i = 0) => ({
 /* ── Navbar ── */
 function Navbar() {
   const { theme, toggle } = useContext(ThemeCtx);
+  const { user, logout } = useAuth();
   return (
     <nav className="navbar">
       <div className="navbar-inner">
@@ -75,7 +77,7 @@ function Navbar() {
           <div className="navbar-logo">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" /></svg>
           </div>
-          <span className="navbar-title">Piracy<span>Shield</span></span>
+          <span className="navbar-title">Krypton<span>AI</span></span>
           <span className="navbar-badge">AI Engine v3.2</span>
         </div>
         <div className="navbar-right">
@@ -83,10 +85,19 @@ function Navbar() {
             <span className="status-dot"><span className="status-dot-ping" /><span className="status-dot-core" /></span>
             Live Scanning
           </div>
+          {user && (
+            <span style={{ fontSize: "13px", color: "var(--text-muted)" }}>Hi, {user.username}</span>
+          )}
           <button className="theme-toggle" onClick={toggle} aria-label="Toggle theme">
             <span className="theme-toggle-knob">{theme === "dark" ? "🌙" : "☀️"}</span>
           </button>
-          <div className="navbar-avatar">JD</div>
+          <button
+            onClick={logout}
+            style={{ padding: "6px 14px", borderRadius: "8px", background: "rgba(255,255,255,0.06)", border: "1px solid var(--border-glass)", color: "var(--text-secondary)", fontSize: "12px", fontWeight: "600", cursor: "pointer", transition: "all 0.2s" }}
+            onMouseOver={e => e.currentTarget.style.background = "rgba(239,68,68,0.1)"}
+            onMouseOut={e => e.currentTarget.style.background = "rgba(255,255,255,0.06)"}
+          >Sign Out</button>
+          <div className="navbar-avatar">{user ? user.username.slice(0,2).toUpperCase() : "??"}</div>
         </div>
       </div>
     </nav>
@@ -204,6 +215,7 @@ function ProcessingPhase({ onComplete, inputData }) {
   const [progress, setProgress] = useState(0);
   const [step, setStep] = useState(0);
   const [msgKey, setMsgKey] = useState(0);
+  const { token } = useAuth();
 
   // Refs so cleanup always has access to the latest interval IDs
   const progressIntervalRef = useRef(null);
@@ -215,22 +227,25 @@ function ProcessingPhase({ onComplete, inputData }) {
         console.log("🔥 INPUT DATA:", inputData);
 
         let res;
+        const authHeader = token ? { "Authorization": `Bearer ${token}` } : {};
 
         // 🔹 STEP 1: HANDLE FILE OR URL
         if (inputData?.file) {
           const formData = new FormData();
           formData.append("file", inputData.file);
 
-          res = await fetch("http://localhost:8080/api/v1/scan/upload", {
+          res = await fetch("/api/v1/scan/upload", {
             method: "POST",
+            headers: authHeader,
             body: formData,
           });
 
         } else if (inputData?.url) {
-          res = await fetch("http://localhost:8080/api/v1/scan", {
+          res = await fetch("/api/v1/scan", {
             method: "POST",
             headers: {
               "Content-Type": "application/json",
+              ...authHeader,
             },
             body: JSON.stringify({ url: inputData.url }),
           });
@@ -248,7 +263,7 @@ function ProcessingPhase({ onComplete, inputData }) {
 
         console.log("🚀 Job ID:", jobId);
 
-        // 🔹 STEP 2: START PROGRESS — stored in ref so cleanup can reach it
+        // 🔹 STEP 2: START PROGRESS
         progressIntervalRef.current = setInterval(() => {
           setProgress((p) => {
             const next = p < 95 ? p + 5 : p;
@@ -261,10 +276,12 @@ function ProcessingPhase({ onComplete, inputData }) {
           });
         }, 300);
 
-        // 🔹 STEP 3: POLLING — stored in ref so cleanup can reach it
+        // 🔹 STEP 3: POLLING
         pollIntervalRef.current = setInterval(async () => {
           try {
-            const res = await fetch(`http://localhost:8080/api/v1/scan/${jobId}`);
+            const res = await fetch(`/api/v1/scan/${jobId}`, {
+              headers: authHeader,
+            });
             const data = await res.json();
 
             console.log("📊 Poll:", data);
@@ -301,12 +318,11 @@ function ProcessingPhase({ onComplete, inputData }) {
 
     uploadAndPoll();
 
-    // ✅ Cleanup: always clear both intervals on unmount or re-run
     return () => {
       clearInterval(progressIntervalRef.current);
       clearInterval(pollIntervalRef.current);
     };
-  }, [inputData, onComplete]);
+  }, [inputData, onComplete, token]);
 
   const r = 68, circ = 2 * Math.PI * r;
 
@@ -482,8 +498,8 @@ function ResultsPhase({ data, onNewScan }) {
       </div>
 
       <div className="app-footer" style={{ marginTop: "40px", textAlign: "center", color: "var(--text-muted)", fontSize: "13px" }}>
-        <p>PiracyShield AI Engine v3.2 · Deep fingerprinting &amp; spectral analysis</p>
-        <p style={{ marginTop: "8px", opacity: 0.6 }}>© 2026 PiracyShield Inc. All rights reserved.</p>
+        <p>Krypton AI Engine v3.2 · Deep fingerprinting &amp; spectral analysis</p>
+        <p style={{ marginTop: "8px", opacity: 0.6 }}>© 2026 Krypton Inc. All rights reserved.</p>
       </div>
     </motion.div>
   );
