@@ -142,7 +142,7 @@ func (h *AuthHandler) Login(c *fiber.Ctx) error {
 		Name:     refreshCookieName,
 		Value:    rawRefresh,
 		HTTPOnly: true,
-		Secure:   false, // set true behind HTTPS in prod
+		Secure:   c.Protocol() == "https", // Auto-detects HTTPS or X-Forwarded-Proto
 		SameSite: "Lax",
 		Expires:  expiresAt,
 		Path:     "/api/v1/auth",
@@ -211,7 +211,7 @@ func (h *AuthHandler) Logout(c *fiber.Ctx) error {
 		Name:     refreshCookieName,
 		Value:    "",
 		HTTPOnly: true,
-		Secure:   false,
+		Secure:   c.Protocol() == "https",
 		SameSite: "Lax",
 		Expires:  time.Unix(0, 0),
 		Path:     "/api/v1/auth",

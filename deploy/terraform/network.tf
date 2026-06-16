@@ -63,31 +63,7 @@ resource "oci_core_security_list" "krypton_sl" {
     }
   }
 
-  # ── Ingress: HTTP ──
-  ingress_security_rules {
-    protocol    = "6"
-    source      = "0.0.0.0/0"
-    stateless   = false
-    description = "HTTP (Caddy redirect to HTTPS)"
 
-    tcp_options {
-      min = 80
-      max = 80
-    }
-  }
-
-  # ── Ingress: HTTPS ──
-  ingress_security_rules {
-    protocol    = "6"
-    source      = "0.0.0.0/0"
-    stateless   = false
-    description = "HTTPS (Caddy TLS)"
-
-    tcp_options {
-      min = 443
-      max = 443
-    }
-  }
 
   # ── Ingress: ICMP (ping — useful for debugging) ──
   ingress_security_rules {
